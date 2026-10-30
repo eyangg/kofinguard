@@ -18,6 +18,20 @@
 cd backend
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+DB 준비 (`backend/.env`에 `DATABASE_URL`이 있어야 함. 로컬은 `sqlite:///./kofinguard.db`):
+
+```powershell
+.\.venv\Scripts\python.exe -m alembic -c ..\database\alembic.ini upgrade head
+.\.venv\Scripts\python.exe seed.py
+```
+
+시연 계정(가상): `minsu` / `seoyeon`, 비밀번호 `demo1234!`
+
+서버 실행:
+
+```powershell
 .\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
