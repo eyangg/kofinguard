@@ -34,11 +34,11 @@
 | 2 | 테이블 구조와 시드 데이터 (SQLite) | Alembic 명령 하나로 테이블 생성, 시드 확인 |
 | 3 | 로그인·로그아웃 | 로그인·접근 제한 테스트 통과 |
 | 4 | 가상 은행 기능 | 조회·송금·한도·원자성 테스트 통과 |
-| 5 | 챗봇 OFF + 문서 첨부 + 공격자 서버 | 실제 API로 S1~S3가 OFF에서 뚫리는지 관측 기록 |
+| 5 | 챗봇 OFF + 문서 첨부 + 공격자 서버 | 실제 API로 S1·S2가 OFF에서 뚫리는지 관측 기록 |
 | 6 | 졸프 탐지 모듈 이식 | 실제 모델로 판정, 점수 기준값 결정 |
-| 7 | 방어 장치 + 챗봇 ON + 시나리오 실행기 | S1~S3 OFF FAIL → ON PASS 실제 관측 |
+| 7 | 방어 장치 + 챗봇 ON + 시나리오 실행기 | S1·S2 OFF FAIL → ON PASS 실제 관측 |
 | 8 | Supabase 연결 | 시연 데이터가 Supabase에 저장됨, RLS 확인 |
-| 9 | Figma → React 비교 화면 | 화면에서 S1~S3 시연 가능, 빌드 성공 |
+| 9 | Figma → React 비교 화면 | 화면에서 S1·S2 시연 가능, 빌드 성공 |
 | 10 | 정량 평가 | E-02·E-03 표가 실제 결과로 생성 |
 | 11 | 통합 확인·문서·발표 준비 | PRD 7장 완성 기준 전부 통과, 리허설 |
 
@@ -56,7 +56,7 @@
 **사람이 할 일**
 - OpenAI 결제·키 발급·월 예산 설정 (`docs/setup_api.md`). 쓸 모델 이름 결정.
 - Supabase 준비. 무료는 활성 프로젝트 2개까지라서 BankGuard 프로젝트를 일시정지할지 재사용할지 결정.
-- Ollama 설치 → `ollama pull llama-guard3:1b`
+- Ollama 설치 → `ollama pull llama-guard3:8b` (졸프와 같은 8B·4bit 조건. 약 5GB)
 - Qwen2.5-3B-Instruct GGUF(Q4_K_M) 다운로드 → `models/`
 - 졸프 코드 중 **내 담당 부분**(자모 분해 전처리, SmoothPPL, Llama Guard 연동, 평가 스크립트)과 데이터셋을 `capstone_ref/`에 복사
 - GitHub 새 저장소 만들기 (비공개 권장)
@@ -148,30 +148,30 @@
 1. `chat/llm_client.py`: OpenAI 호출 + 테스트용 가짜 LLM. 키만 넣으면 동작하게 합니다.
 2. `chat/tools.py`: 툴 목록 (확인 API는 넣지 않음)
 3. `chat/executor_off.py`: 챗봇이 준 값을 그대로 실행 (SPEC 3.2·3.3의 OFF 동작)
-4. 문서 첨부 API: `backend/uploads/` + `attachments` 테이블 (SPEC 3.5)
+4. 문서 첨부 API: `backend/uploads/` + `attachments` 테이블, PDF·txt 글자 추출 (SPEC 3.5)
 5. `attacker/server.py`: 127.0.0.1:9999, 받은 요청을 `artifacts/attacker_log.jsonl`에 기록
-6. `scenarios/presets.json`과 S3 악성 문서 초안, 명령줄 대화 도구 (`--mode off`)
+6. `scenarios/presets.json`(S1·S2 원문·자모·사투리), S2 청구서 PDF 3개(흰 글씨 숨은 지시, 숨긴 코드는 127.0.0.1로만 전송), 명령줄 대화 도구 (`--mode off`)
 
 **예상 변경 파일:** `backend/chat/*`, `backend/attacker/server.py`, `backend/scenarios/*`, `backend/tests/test_chat_off.py`
 
 **사람이 할 일:**
 - 명령줄로 정상 대화를 직접 해 봅니다.
-- S1·S2(변형별)·S3를 직접 넣어 봅니다.
+- S1·S2를 변형별(원문·자모·사투리)로 직접 넣어 봅니다. S2는 챗봇 답변에 숨긴 코드 문자열이 그대로 들어가는지 확인합니다 (화면 실행은 Phase 9).
 - 뚫리지 않는 변형은 문장을 바꿀지 정합니다 (PRD 10장 미정 항목).
 
 **확인 방법:** 가짜 LLM 테스트가 통과하는지 확인합니다. 실제 API 관측 결과는 `artifacts/observe_off.json`에 기록합니다.
 
-**완료 조건:** S1~S3 OFF 관측 결과가 기록됩니다. 뚫리지 않은 것도 그대로 기록합니다.
+**완료 조건:** S1·S2 OFF 관측 결과가 기록됩니다. 뚫리지 않은 것도 그대로 기록합니다.
 
 ### Phase 6. 졸프 탐지 모듈 이식
 
-**목표:** SPEC 4.1 흐름(D-01~D-05)을 만듭니다.
+**목표:** SPEC 4.1 흐름(D-01~D-04)을 만듭니다. 졸프 파이프라인(자모 분해 → SmoothPPL → Llama Guard)을 그대로 살리고, 새 단계는 붙이지 않습니다.
 
 **작업**
 1. 사람이 지정한 `capstone_ref/` 파일에서 자모 분해 전처리를 `detector/normalize.py`로 옮깁니다. 원본과 같은 결과가 나오는지 테스트합니다.
 2. SmoothPPL을 `detector/smoothppl.py`로 옮깁니다 (`llama-cpp-python` + Qwen GGUF, CPU).
-3. `detector/decoders.py`: 모스·초성·자모 분리·base64 복원
-4. `detector/guard.py`: Ollama Llama Guard 3-1B 호출
+3. 졸프 코드에서 SmoothPPL과 Llama Guard 결과를 원래 어떻게 합쳤는지 확인해 보고합니다. SPEC 4.1 초안과 다르면 사람에게 묻습니다.
+4. `detector/guard.py`: Ollama Llama Guard 3-8B(4bit) 호출. 판정 1회 시간을 재서, 시연에 너무 느리면 사람에게 알리고 1B(`llama-guard3:1b`)로 바꿀지 묻는다
 5. `detector/router.py`: 4.1 흐름대로 판정 결과를 반환합니다. 모델이 꺼져 있으면 통과시키지 않습니다.
 6. 정상 문장 30개의 점수 분포를 보여 주고 기준값 후보를 제안합니다.
 
@@ -180,7 +180,8 @@
 **사람이 할 일:**
 - 이식할 졸프 파일을 지정합니다.
 - 기준값을 정해서 `.env`에 넣습니다.
-- 변형 문장 결과를 눈으로 확인합니다.
+- 자모·사투리 변형 문장 결과를 눈으로 확인합니다.
+- 지금 `capstone_ref/`의 노트북 2개에는 Llama Guard 코드가 없습니다. 연동 코드가 있으면 추가로 넣습니다.
 
 **확인 방법:**
 - 기본 pytest(가짜 탐지기)를 실행합니다.
@@ -196,15 +197,15 @@
 **목표:** SPEC 4.2~4.4와 5장을 완성합니다.
 
 **작업**
-1. `chat/executor_on.py`: 본인 번호로 바꿔서 실행, 한도 검사, 송금은 대기만 (D-06, D-07)
-2. 첨부 문서 격리 (D-08)
-3. `chat/output_filter.py`: 링크·이미지 제거, 계좌번호 가리기 (D-09)
+1. `chat/executor_on.py`: 본인 번호로 바꿔서 실행, 한도 검사, 송금은 대기만 (D-05, D-06)
+2. 첨부 문서 격리: 신뢰할 수 없는 문서 표시, 문서 값 허용 문자 검사 (D-07)
+3. `chat/output_filter.py`: HTML 인코딩, 링크·이미지 제거, 계좌번호 가리기 (D-08)
 4. `chat/pipeline.py`: OFF/ON 흐름, 판단 근거(trace) 기록
-5. `scenarios/runner.py`: S1~S3를 OFF/ON으로 돌리고 잔액·`tool_calls`·공격자 기록으로 판정
+5. `scenarios/runner.py`: S1·S2를 변형별로 OFF/ON 실행하고 `tool_calls`·공격자 기록으로 판정. S2는 브라우저 없이도 판정되도록, 답변에 실행 가능한 HTML이 남는지 검사 + Phase 9 이후 브라우저 확인
 
 **예상 변경 파일:** `backend/chat/*`, `backend/scenarios/runner.py`, `backend/tests/test_defense.py`, `backend/tests/test_scenarios.py`
 
-**확인 방법:** 가짜 LLM으로 S1~S3 OFF FAIL / ON PASS 테스트를 통과시킵니다. 실제 API 결과는 `artifacts/scenarios.json`에 기록합니다.
+**확인 방법:** 가짜 LLM으로 S1·S2 OFF FAIL / ON PASS 테스트를 통과시킵니다. 실제 API 결과는 `artifacts/scenarios.json`에 기록합니다.
 
 **완료 조건:** 테스트가 통과하고, 사람이 runner 결과와 근거를 읽고 납득합니다.
 
@@ -237,29 +238,29 @@
 1. (사람) Figma로 화면을 그립니다: 로그인, 비교 채팅, 근거 패널, 송금 대기 카드, 공격자 기록, 평가 결과.
 2. Figma MCP로 디자인을 읽고, 무엇을 읽었는지 먼저 설명하게 합니다.
 3. React 화면을 만듭니다.
-   - OFF 패널은 마크다운 이미지를 그립니다 (S3 재현용).
-   - ON 패널은 이미지·링크를 그리지 않습니다.
+   - OFF 패널은 답변을 HTML로 그립니다 (S2 재현용, 취약. 127.0.0.1 전용).
+   - ON 패널은 답변을 텍스트로만 그립니다.
 4. 공격 버튼 하나로 양쪽에 동시 전송합니다.
 
 **예상 변경 파일:** `frontend/src/*`
 
 **사람이 할 일:**
 - Figma 작업을 합니다.
-- 브라우저에서 S1~S3를 직접 시연합니다.
+- 브라우저에서 S1·S2를 직접 시연합니다. S2는 OFF에서 공격자 서버 기록이 생기고 ON에서는 0건인지 확인합니다.
 - Network 탭에서 Supabase 주소로 가는 요청이 없는지 확인합니다.
 
 **확인 방법:** `npm run build`가 성공하는지 확인합니다. 화면 확인 순서는 화면 → Console → Network → 백엔드 터미널입니다.
 
-**완료 조건:** 화면에서 S1~S3 OFF/ON 결과와 근거가 보입니다.
+**완료 조건:** 화면에서 S1·S2 OFF/ON 결과와 근거가 보입니다.
 
 ### Phase 10. 정량 평가
 
 **목표:** SPEC 7장 평가표를 만듭니다.
 
 **작업**
-1. `eval/datasets/`: 공격·정상 세트를 만듭니다. 변형 6종이고, 정상 문장 변형도 포함합니다.
-2. `run_detector_eval.py`: 세 방식의 TPR/FPR, 변형별 TPR, 시간
-3. `run_attack_eval.py`: S1~S3 공격 성공률을 OFF/ON으로 계산합니다. 결과는 캐시합니다.
+1. `eval/datasets/`: 공격·정상 세트를 만듭니다. 졸프 데이터셋(사투리·자모) + S1·S2 문장과 그 변형, 정상 은행 질문과 그 자모·사투리 변형.
+2. `run_detector_eval.py`: 세 방식(① Guard만 ② 점수만 차단 ③ 졸프 파이프라인)의 TPR/FPR, 변형별 TPR, 시간
+3. `run_attack_eval.py`: S1·S2 변형별 공격 성공률을 OFF/ON으로 계산합니다. 결과는 캐시합니다.
 4. 결과를 `artifacts/`와 `eval_runs`에 저장하고 화면 U-06에 표시합니다.
 
 **사람이 할 일:**
@@ -279,7 +280,7 @@
 1. PRD 7장 완성 기준을 하나씩 확인합니다.
 2. `README.md`를 씁니다. 소개, 실행 방법(백엔드·프론트·공격자 서버·Ollama 터미널), 결과 요약 표를 넣습니다.
 3. `docs/threat_model.md`: 데이터 흐름, 신뢰 경계(사용자 입력·첨부 문서·챗봇 답변), 시나리오별 방어
-4. `docs/limitations.md`: Llama Guard 1B 한국어 한계, CPU 속도, 챗봇 답변이 매번 다를 수 있음, 탐지기를 우회하는 공격
+4. `docs/limitations.md`: 졸프(bitsandbytes 4bit)와 Ollama(GGUF 4bit) 양자화 방식 차이, (1B로 내렸다면) 1B 한국어 한계, CPU 속도, 챗봇 답변이 매번 다를 수 있음, 탐지기를 우회하는 공격
 5. `docs/demo_script.md`: 3분/5분 시연 대본, 예상 질문
 
 **사람이 할 일:** 리허설 1회, **시연 녹화(백업)**, 예상 질문 답변 연습.
@@ -290,9 +291,8 @@
 
 | ID | 내용 | 완료 조건 |
 |---|---|---|
-| X1 | S4: 탈옥으로 잘못된 약속 끌어내기 (Air Canada 2024 사례, "우대금리 확정") | OFF FAIL → ON PASS |
-| X2 | 사투리 변형 확대 (졸프 데이터) | 변형별 TPR 표에 추가 |
-| X3 | GitHub Actions: pytest + 프론트 빌드 | CI 성공 |
+| X1 | **S3 직원 개인정보 유출** (2026년 5월 미국 CB Financial: 직원이 고객 이름·생년월일·사회보장번호를 승인 안 된 외부 AI 앱에 입력, SEC 공시). 직원 계정 + 업무 보조 챗봇 모드를 추가하고, OFF는 붙여넣은 주민번호·계좌번호를 그대로 OpenAI로 보내고 ON은 보내기 전에 마스킹(D-09). 판정은 외부로 보낸 요청 기록에 원문 개인정보가 있는지로 함 | OFF FAIL → ON PASS, 시연 1회 |
+| X2 | GitHub Actions: pytest + 프론트 빌드 | CI 성공 |
 
 ## 6. 날짜별 목표
 
@@ -307,12 +307,12 @@
 | 11/6(금) | 오전 최종 점검, 오후 산출물 정리·발표 |
 
 **일정이 밀리면 줄이는 순서:**
-1. 확장 X1~X3
-2. E-03 반복 횟수 (20 → 10)
+1. 확장 X1·X2
+2. E-03 반복 횟수 (10 → 5)
 3. 근거 패널 꾸미기
-4. S2 변형 수 (6종 → 자모·초성·모스 3종)
+4. 변형 수 (원문·자모·사투리 → 원문·자모)
 
-S1~S3 OFF/ON 시연과 E-02 표는 줄이지 않습니다.
+S1·S2 OFF/ON 시연과 E-02 표는 줄이지 않습니다. X1을 못 하면 발표에 "향후 과제" 한 장으로 넣습니다.
 
 ## 7. 진행 기록
 

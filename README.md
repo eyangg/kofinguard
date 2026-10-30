@@ -1,12 +1,12 @@
 # KoFinGuard
 
-가상 은행(MJ뱅크) AI 상담 챗봇에 최근 실제 LLM 공격(S1~S3)을 한국어로 재현하고, 방어 OFF 챗봇은 뚫리고 방어 ON 챗봇은 막히는 것을 실제 결과와 TPR/FPR로 보여 주는 프로젝트입니다. MJ뱅크와 모든 고객·계좌·금액은 가상입니다.
+가상 은행(MJ뱅크) 고객용 AI 상담 챗봇에 실제 은행 사고·취약점 기반 공격 2개(S1 권한 사칭, S2 PDF 속 숨은 지시)를 원문·자모·사투리 변형으로 재현하고, 방어 OFF 챗봇은 뚫리고 방어 ON 챗봇은 막히는 것을 실제 결과와 TPR/FPR로 보여 주는 프로젝트입니다. MJ뱅크와 모든 고객·계좌·금액은 가상입니다.
 
 문서: [MVP](docs/mvp.md) · [PRD](docs/prd.md) · [SPEC](docs/spec.md) · [PLAN](docs/plan.md)
 
 ## 준비물
 
-- Python 3.12, Node 20+, Ollama (`ollama pull llama-guard3:1b`)
+- Python 3.12, Node 20+, Ollama (`ollama pull llama-guard3:8b`, 너무 느리면 `llama-guard3:1b`)
 - `models/qwen2.5-3b-instruct-q4_k_m.gguf`
 - `backend/.env` (`backend/.env.example`을 복사해서 값 채우기, Git 제외)
 
