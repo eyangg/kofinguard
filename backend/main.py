@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+import attachments
 import auth
 import db
 from auth import CurrentUser, MeResponse
@@ -38,6 +39,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="KoFinGuard", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(bank_router)
+app.include_router(attachments.router)
 
 
 @app.get("/api/health")

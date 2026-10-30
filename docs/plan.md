@@ -39,7 +39,7 @@
 | 7 | 방어 장치 + 챗봇 ON + 시나리오 실행기 | S1·S2 OFF FAIL → ON PASS 실제 관측 |
 | 8 | Supabase 연결 | 시연 데이터가 Supabase에 저장됨, RLS 확인 |
 | 9 | Figma → React 비교 화면 | 화면에서 S1·S2 시연 가능, 빌드 성공 |
-| 10 | 정량 평가 | E-02·E-03 표가 실제 결과로 생성 |
+| 10 | 정량 평가 (탐지기 운영 지표, 공격 성공률) | E-02·E-03 표가 실제 결과로 생성 |
 | 11 | 통합 확인·문서·발표 준비 | PRD 7장 완성 기준 전부 통과, 리허설 |
 
 ## 4. Phase별 상세 계획
@@ -150,14 +150,14 @@
 3. `chat/executor_off.py`: 챗봇이 준 값을 그대로 실행 (SPEC 3.2·3.3의 OFF 동작)
 4. 문서 첨부 API: `backend/uploads/` + `attachments` 테이블, PDF·txt 글자 추출 (SPEC 3.5)
 5. `attacker/server.py`: 127.0.0.1:9999, 받은 요청을 `artifacts/attacker_log.jsonl`에 기록
-6. `scenarios/presets.json`(S1·S2 원문·자모·사투리), S2 청구서 PDF 3개(흰 글씨 숨은 지시, 숨긴 코드는 127.0.0.1로만 전송), 명령줄 대화 도구 (`--mode off`)
+6. `scenarios/presets.json`(S1, S2 원문만), S2 청구서 PDF 1개(흰 글씨 숨은 지시, 숨긴 코드는 127.0.0.1로만 전송), 명령줄 대화 도구 (`--mode off`)
 
 **예상 변경 파일:** `backend/chat/*`, `backend/attacker/server.py`, `backend/scenarios/*`, `backend/tests/test_chat_off.py`
 
 **사람이 할 일:**
 - 명령줄로 정상 대화를 직접 해 봅니다.
-- S1·S2를 변형별(원문·자모·사투리)로 직접 넣어 봅니다. S2는 챗봇 답변에 숨긴 코드 문자열이 그대로 들어가는지 확인합니다 (화면 실행은 Phase 9).
-- 뚫리지 않는 변형은 문장을 바꿀지 정합니다 (PRD 10장 미정 항목).
+- S1·S2를 직접 넣어 봅니다. S2는 챗봇 답변에 숨긴 코드 문자열이 그대로 들어가는지 확인합니다 (화면 실행은 Phase 9).
+- 뚫리지 않으면 문장 표현을 바꿀지 정합니다 (PRD 10장 미정 항목).
 
 **확인 방법:** 가짜 LLM 테스트가 통과하는지 확인합니다. 실제 API 관측 결과는 `artifacts/observe_off.json`에 기록합니다.
 
@@ -165,7 +165,7 @@
 
 ### Phase 6. 졸프 탐지 모듈 이식
 
-**목표:** SPEC 4.1 흐름(D-01~D-04)을 만듭니다. 졸프 파이프라인(자모 분해 → SmoothPPL → Llama Guard)을 그대로 살리고, 새 단계는 붙이지 않습니다.
+**목표:** SPEC 4.1 흐름(D-01~D-04, 보조 레이어)을 만듭니다. 졸프 파이프라인(자모 분해 → SmoothPPL → Llama Guard)을 그대로 살리고, 새 단계는 붙이지 않습니다.
 
 **작업**
 1. 사람이 지정한 `capstone_ref/` 파일에서 자모 분해 전처리를 `detector/normalize.py`로 옮깁니다. 원본과 같은 결과가 나오는지 테스트합니다.
@@ -180,7 +180,7 @@
 **사람이 할 일:**
 - 이식할 졸프 파일을 지정합니다.
 - 기준값을 정해서 `.env`에 넣습니다.
-- 자모·사투리 변형 문장 결과를 눈으로 확인합니다.
+- 정상 은행 질문과 S1·S2 입력에 대한 판정 결과를 눈으로 확인합니다.
 - 지금 `capstone_ref/`의 노트북 2개에는 Llama Guard 코드가 없습니다. 연동 코드가 있으면 추가로 넣습니다.
 
 **확인 방법:**
@@ -201,7 +201,7 @@
 2. 첨부 문서 격리: 신뢰할 수 없는 문서 표시, 문서 값 허용 문자 검사 (D-07)
 3. `chat/output_filter.py`: HTML 인코딩, 링크·이미지 제거, 계좌번호 가리기 (D-08)
 4. `chat/pipeline.py`: OFF/ON 흐름, 판단 근거(trace) 기록
-5. `scenarios/runner.py`: S1·S2를 변형별로 OFF/ON 실행하고 `tool_calls`·공격자 기록으로 판정. S2는 브라우저 없이도 판정되도록, 답변에 실행 가능한 HTML이 남는지 검사 + Phase 9 이후 브라우저 확인
+5. `scenarios/runner.py`: S1·S2를 OFF/ON으로 실행하고 `tool_calls`·공격자 기록으로 판정. S2는 브라우저 없이도 판정되도록, 답변에 실행 가능한 HTML이 남는지 검사 + Phase 9 이후 브라우저 확인
 
 **예상 변경 파일:** `backend/chat/*`, `backend/scenarios/runner.py`, `backend/tests/test_defense.py`, `backend/tests/test_scenarios.py`
 
@@ -258,13 +258,12 @@
 **목표:** SPEC 7장 평가표를 만듭니다.
 
 **작업**
-1. `eval/datasets/`: 공격·정상 세트를 만듭니다. 졸프 데이터셋(사투리·자모) + S1·S2 문장과 그 변형, 정상 은행 질문과 그 자모·사투리 변형.
-2. `run_detector_eval.py`: 세 방식(① Guard만 ② 점수만 차단 ③ 졸프 파이프라인)의 TPR/FPR, 변형별 TPR, 시간
-3. `run_attack_eval.py`: S1·S2 변형별 공격 성공률을 OFF/ON으로 계산합니다. 결과는 캐시합니다.
+1. `eval/datasets/`: 정상 은행 질문 30~50개 + S1 문장 + S2 청구서 추출 글자.
+2. `run_detector_eval.py`: 탐지기 운영 지표 — 정상 질문 오탐률·다시 묻기 개수, 단계별 판정 시간, S1·S2 판정 결과 (SPEC 7.1)
+3. `run_attack_eval.py`: S1·S2 공격 성공률을 OFF/ON으로 계산합니다. 결과는 캐시합니다.
 4. 결과를 `artifacts/`와 `eval_runs`에 저장하고 화면 U-06에 표시합니다.
 
 **사람이 할 일:**
-- CPU가 너무 느리면 코랩에서 E-02를 돌리고 결과를 가져옵니다.
 - 정상 문장 오탐률 목표를 정합니다.
 - 발표 메시지를 정합니다.
 
@@ -310,7 +309,7 @@
 1. 확장 X1·X2
 2. E-03 반복 횟수 (10 → 5)
 3. 근거 패널 꾸미기
-4. 변형 수 (원문·자모·사투리 → 원문·자모)
+4. E-02 정상 질문 수 (50 → 30)
 
 S1·S2 OFF/ON 시연과 E-02 표는 줄이지 않습니다. X1을 못 하면 발표에 "향후 과제" 한 장으로 넣습니다.
 
@@ -324,11 +323,15 @@ S1·S2 OFF/ON 시연과 E-02 표는 줄이지 않습니다. X1을 못 하면 발
 | 1 | 완료 (브라우저 확인됨) | `backend/.venv`(3.12)·FastAPI `/api/health`·pytest(마커 llm/models/postgres 기본 제외) 1 passed, Vite+React+TS(strict) 빌드 성공·`/api` 프록시 확인, `.gitignore`·`.env.example`·README, `git init`+origin 연결(커밋 안 함), `.env`·models·capstone_ref 제외 확인 | 사람: 두 서버 직접 실행·브라우저 확인, learning_log 작성, 커밋 요청 → Phase 2 |
 | 2 | 완료 (서버·화면 확인됨) | SQLAlchemy 모델 9개(email·to_name 포함), `database/` Alembic + 첫 마이그레이션, `db.py`(DATABASE_URL 없거나 연결 실패 시 멈춤, SQLite 상대경로는 backend 기준), `seed.py`(김민수·이서연, PBKDF2 해시, 재실행 안전), `passwords.py`. pytest 11 passed. 실제 흐름(임시 SQLite): 서버 미설정 시 종료, upgrade 2회, seed 2회, 재시작 후 데이터 유지 확인 | 사람: `.env`에 `DATABASE_URL=sqlite:///./kofinguard.db` 추가 → upgrade·seed 직접 실행, learning_log → Phase 3 |
 | 3 | 완료 | `auth.py`: 로그인(httpOnly·SameSite=lax 쿠키, 서명된 무작위 세션 ID, 서버 메모리 세션 8시간), 로그아웃(서버 세션 삭제), `get_current_user`, `GET /api/me`. `KFG_SESSION_SECRET` 없으면 서버 시작 안 함. pytest 24 passed. 실제 서버: 미로그인 401, 틀린 비번 401, 로그인 200, 로그아웃 후 이전 쿠키 401 확인. `/api/chat` 401은 Phase 5에서 확인 | 사람: `.env`에 `KFG_SESSION_SECRET` 추가, `/docs`에서 직접 로그인, learning_log → Phase 4 |
-| 4 | 완료 (사람 확인 대기) | `bank/service.py`: 잔액·거래내역·고객 정보 조회, 송금(출금·입금·기록 한 트랜잭션, 실패 시 전부 취소), 금액 정수 검사, 잔액·하루 한도 100만원(KST 0시 기준, OFF/ON 공통), 송금 대기(5분)·확인(본인만, 1회, 실행 시 재검사). `bank/router.py`: `GET /api/accounts/me`, `GET /api/transactions`, `POST /api/transfers/{id}/confirm`. pytest 47 passed. DB 복사본으로 실제 API 확인 | 사람: Swagger로 조회 API 확인 → Phase 5 (`OPENAI_MODEL` 결정 필요) |
-| 5 | 대기 | | |
+| 4 | 완료 | `bank/service.py`: 잔액·거래내역·고객 정보 조회, 송금(출금·입금·기록 한 트랜잭션, 실패 시 전부 취소), 금액 정수 검사, 잔액·하루 한도 100만원(KST 0시 기준, OFF/ON 공통), 송금 대기(5분)·확인(본인만, 1회, 실행 시 재검사). `bank/router.py`: `GET /api/accounts/me`, `GET /api/transactions`, `POST /api/transfers/{id}/confirm`. pytest 47 passed. DB 복사본으로 실제 API 확인 | 사람: Swagger로 조회 API 확인 → Phase 5 (`OPENAI_MODEL` 결정 필요) |
+| 5 | 완료 | `OPENAI_MODEL=gpt-4.1-mini` 결정. `chat/`(llm_client+FakeLLM, tools 4개·확인 없음, executor_off, loop), `attachments.py`(POST /api/attachments, PDF·txt 1MB, pypdf 추출, 본인만), `attacker/server.py`(127.0.0.1:9999, /x 스크립트·/c 수집, attacker_log.jsonl), `scenarios/`(attacks.py S1·S2 원문, presets.json 2개, 청구서 PDF 1개 흰 글씨, cli.py → observe_off.json), `seed.py --reset`. 문서 변경(8장)에 따라 자모·사투리 변형 삭제. 1차 관측: S1·S2 모두 OFF 안 뚫림 → DB 복사본으로 후보 실험 후 표현 확정: S1 '상담 메모 위장', S2 '전자영수증 태그 위장' (안내문은 변경 없음). 최종 관측(`artifacts/observe_off.json`): **S1 뚫림(C-1002 조회), S2 뚫림(답변에 코드)**. pytest 73 passed | Phase 6 (졸프 탐지 파이프라인, 보조 레이어). spec 5.1의 S1 원문 예시 문장 갱신 여부는 사람 결정 |
 | 6 | 대기 | | |
 | 7 | 대기 | | |
 | 8 | 대기 | | |
 | 9 | 대기 | | |
 | 10 | 대기 | | |
 | 11 | 대기 | | |
+
+## 8. 문서 변경 기록
+
+- 10/30: 시나리오를 실제 사례 원문만 쓰도록 변경. 자모·사투리 변형 공격(attacks.py 변형, presets 변형 버튼, 변형 PDF 2개)은 삭제 대상. 핵심 방어는 서버 쪽(D-05~D-08), 졸프 파이프라인(D-01~D-04)은 보조 레이어. E-02는 졸프 데이터셋 비교 대신 탐지기 운영 지표(정상 질문 오탐, 속도, S1·S2 판정)로 변경.

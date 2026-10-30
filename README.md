@@ -1,6 +1,6 @@
 # KoFinGuard
 
-가상 은행(MJ뱅크) 고객용 AI 상담 챗봇에 실제 은행 사고·취약점 기반 공격 2개(S1 권한 사칭, S2 PDF 속 숨은 지시)를 원문·자모·사투리 변형으로 재현하고, 방어 OFF 챗봇은 뚫리고 방어 ON 챗봇은 막히는 것을 실제 결과와 TPR/FPR로 보여 주는 프로젝트입니다. MJ뱅크와 모든 고객·계좌·금액은 가상입니다.
+가상 은행(MJ뱅크) 고객용 AI 상담 챗봇에 실제 은행 사고·취약점 기반 공격 2개(S1 권한 사칭, S2 PDF 속 숨은 지시)를 원문 그대로 재현하고, 방어 OFF 챗봇은 뚫리고 방어 ON 챗봇은 막히는 것을 실제 결과로 보여 주는 프로젝트입니다. 핵심 방어는 서버 쪽이고, 졸프 한국어 탈옥 탐지 파이프라인은 보조 레이어입니다. MJ뱅크와 모든 고객·계좌·금액은 가상입니다.
 
 문서: [MVP](docs/mvp.md) · [PRD](docs/prd.md) · [SPEC](docs/spec.md) · [PLAN](docs/plan.md)
 
@@ -51,6 +51,20 @@ npm run dev
 PowerShell에서 "스크립트를 실행할 수 없으므로 npm.ps1을 로드할 수 없습니다" 오류가 나면 `npm.cmd run dev`로 실행하거나, `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`를 한 번 실행합니다.
 
 브라우저에서 http://127.0.0.1:5173 을 엽니다. `/api` 요청은 백엔드(127.0.0.1:8000)로 넘어갑니다.
+
+## 공격자 서버와 명령줄 대화 (방어 OFF 관측)
+
+`backend/.env`에 `OPENAI_MODEL`과 `KFG_ENV=local`이 있어야 합니다. 실제 OpenAI API를 써서 비용이 듭니다.
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m attacker.server              # 127.0.0.1:9999 (다른 터미널에 켜 둠)
+.\.venv\Scripts\python.exe -m scenarios.cli                # 김민수로 직접 대화
+.\.venv\Scripts\python.exe -m scenarios.cli --preset all   # S1·S2 실행 → artifacts/observe_off.json
+.\.venv\Scripts\python.exe seed.py --reset                 # 잔액을 처음 값으로 (관측 반복 전)
+```
+
+공격 문장을 바꾸면 `.\.venv\Scripts\python.exe -m scenarios.build`로 `presets.json`과 청구서 PDF를 다시 만듭니다.
 
 ## 테스트
 

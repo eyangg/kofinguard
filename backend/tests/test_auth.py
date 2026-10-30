@@ -57,11 +57,17 @@ def test_me_without_login_is_401(client: TestClient) -> None:
     assert client.get("/api/me").status_code == 401
 
 
+def use_only_cookie(client: TestClient, value: str) -> None:
+    """쿠키 저장소를 비우고 이 값 하나만 보내게 한다 (httpx2는 set만 하면 기존 쿠키가 같이 남는다)."""
+    client.cookies.clear()
+    client.cookies.set(auth.COOKIE_NAME, value)
+
+
 def test_tampered_cookie_is_401(client: TestClient) -> None:
     login(client)
     value = client.cookies[auth.COOKIE_NAME]
     sid, _, sig = value.rpartition(".")
-    client.cookies.set(auth.COOKIE_NAME, f"{sid}.{'0' * len(sig)}")
+    use_only_cookie(client, f"{sid}.{'0' * len(sig)}")
     assert client.get("/api/me").status_code == 401
 
 
@@ -75,7 +81,7 @@ def test_old_cookie_after_logout_is_401(client: TestClient) -> None:
     login(client)
     old = client.cookies[auth.COOKIE_NAME]
     assert client.post("/api/auth/logout").status_code == 200
-    client.cookies.set(auth.COOKIE_NAME, old)  # 로그아웃 전 쿠키를 다시 보내 본다
+    use_only_cookie(client, old)  # 로그아웃 전 쿠키를 다시 보내 본다
     assert client.get("/api/me").status_code == 401
 
 
@@ -89,7 +95,7 @@ def test_relogin_replaces_old_session(client: TestClient) -> None:
     first = client.cookies[auth.COOKIE_NAME]
     login(client, "seoyeon")
     assert client.get("/api/me").json()["id"] == "C-1002"
-    client.cookies.set(auth.COOKIE_NAME, first)
+    use_only_cookie(client, first)
     assert client.get("/api/me").status_code == 401
 
 

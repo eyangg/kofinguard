@@ -2,15 +2,17 @@
 
 실행 (backend 폴더, 테이블을 먼저 만든 뒤):
     .\\.venv\\Scripts\\python.exe seed.py
+    .\\.venv\\Scripts\\python.exe seed.py --reset   # 잔액을 처음 값으로, 거래·송금 대기 기록 삭제 (관측 반복용)
 """
 
 import sys
 
+from sqlalchemy import delete, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import db
-from models import Account, Customer
+from models import Account, Customer, PendingTransfer, Transaction
 from passwords import hash_password
 
 # 시연 계정 비밀번호. 가상 계정이라 비밀값이 아니다.
@@ -64,12 +66,24 @@ def seed(session: Session) -> int:
     return added
 
 
+def reset(session: Session) -> None:
+    """잔액을 처음 값으로 돌리고 거래·송금 대기 기록을 지운다. 고객·대화 기록은 그대로 둔다."""
+    session.execute(delete(PendingTransfer))
+    session.execute(delete(Transaction))
+    for c in CUSTOMERS:
+        session.execute(update(Account).where(Account.account_no == c["account_no"]).values(balance=c["balance"]))
+    session.commit()
+
+
 def main() -> int:
     try:
         engine = db.get_engine()
         db.check_connection(engine)
         with Session(engine) as session:
             added = seed(session)
+            if "--reset" in sys.argv[1:]:
+                reset(session)
+                print("잔액 초기화, 거래·송금 대기 기록 삭제")
     except db.DatabaseConfigError as e:
         print(e, file=sys.stderr)
         return 1
