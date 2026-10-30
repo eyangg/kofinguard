@@ -323,7 +323,7 @@ S1·S2 OFF/ON 시연과 E-02 표는 줄이지 않습니다. X1을 못 하면 발
 | 0 | 완료 | 문서 범위 대조, Python 3.12.10·Node 24·Git·Ollama 0.40(llama-guard3:1b) 확인, Qwen GGUF 무결성 확인(2,104,932,768B, GGUF), 졸프 노트북 2개 `capstone_ref/` 확인, 포트 8000·5173·9999 비어 있음. Supabase는 BankGuard 재사용 결정. GitHub: eyangg/kofinguard. `OPENAI_API_KEY` 입력됨 | `OPENAI_MODEL`은 Phase 5 전까지 결정 |
 | 1 | 완료 (브라우저 확인됨) | `backend/.venv`(3.12)·FastAPI `/api/health`·pytest(마커 llm/models/postgres 기본 제외) 1 passed, Vite+React+TS(strict) 빌드 성공·`/api` 프록시 확인, `.gitignore`·`.env.example`·README, `git init`+origin 연결(커밋 안 함), `.env`·models·capstone_ref 제외 확인 | 사람: 두 서버 직접 실행·브라우저 확인, learning_log 작성, 커밋 요청 → Phase 2 |
 | 2 | 완료 (서버·화면 확인됨) | SQLAlchemy 모델 9개(email·to_name 포함), `database/` Alembic + 첫 마이그레이션, `db.py`(DATABASE_URL 없거나 연결 실패 시 멈춤, SQLite 상대경로는 backend 기준), `seed.py`(김민수·이서연, PBKDF2 해시, 재실행 안전), `passwords.py`. pytest 11 passed. 실제 흐름(임시 SQLite): 서버 미설정 시 종료, upgrade 2회, seed 2회, 재시작 후 데이터 유지 확인 | 사람: `.env`에 `DATABASE_URL=sqlite:///./kofinguard.db` 추가 → upgrade·seed 직접 실행, learning_log → Phase 3 |
-| 3 | 대기 | | |
+| 3 | 완료 (사람 확인 대기) | `auth.py`: 로그인(httpOnly·SameSite=lax 쿠키, 서명된 무작위 세션 ID, 서버 메모리 세션 8시간), 로그아웃(서버 세션 삭제), `get_current_user`, `GET /api/me`. `KFG_SESSION_SECRET` 없으면 서버 시작 안 함. pytest 24 passed. 실제 서버: 미로그인 401, 틀린 비번 401, 로그인 200, 로그아웃 후 이전 쿠키 401 확인. `/api/chat` 401은 Phase 5에서 확인 | 사람: `.env`에 `KFG_SESSION_SECRET` 추가, `/docs`에서 직접 로그인, learning_log → Phase 4 |
 | 4 | 대기 | | |
 | 5 | 대기 | | |
 | 6 | 대기 | | |

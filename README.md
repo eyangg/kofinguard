@@ -20,7 +20,12 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-DB 준비 (`backend/.env`에 `DATABASE_URL`이 있어야 함. 로컬은 `sqlite:///./kofinguard.db`):
+`backend/.env`에 꼭 있어야 하는 값 (없으면 서버가 시작하지 않음):
+
+- `DATABASE_URL` — 로컬은 `sqlite:///./kofinguard.db`
+- `KFG_SESSION_SECRET` — 32자 이상 무작위 문자열. `.\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(32))"`로 만듭니다.
+
+DB 준비:
 
 ```powershell
 .\.venv\Scripts\python.exe -m alembic -c ..\database\alembic.ini upgrade head

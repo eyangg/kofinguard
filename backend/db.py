@@ -5,6 +5,7 @@ DATABASE_URL만 사용한다. 없거나 연결할 수 없으면 SQLite로 자동
 """
 
 import os
+from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
 
@@ -92,3 +93,9 @@ def get_engine() -> Engine:
 
 def get_session_factory() -> sessionmaker[Session]:
     return sessionmaker(bind=get_engine(), expire_on_commit=False)
+
+
+def get_db() -> Iterator[Session]:
+    """FastAPI 의존성: 요청마다 DB 세션을 열고 닫는다."""
+    with get_session_factory()() as session:
+        yield session

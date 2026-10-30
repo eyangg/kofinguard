@@ -129,7 +129,7 @@ Phase [번호] 진행해줘. plan.md의 해당 Phase 작업과 완료 조건만 
 ### 2-5. Phase 끝: 확인 → 학습 기록 → 커밋·푸시 (04강)
 
 1. AI가 보고한 '내가 확인할 것'을 직접 확인합니다.
-2. `docs/learning_log.md`에 이해한 것 3줄을 내가 직접 씁니다.
+2. `docs/learning_log.md`는 AI가 Phase 끝에 정리합니다 (그 Phase에서 내가 질문한 것 + 중요한 내용, 쉬운 Q&A).
 3. 아래 프롬프트를 보냅니다.
 
 ```text
