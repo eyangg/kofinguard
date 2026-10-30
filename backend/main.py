@@ -13,6 +13,7 @@ from fastapi import FastAPI
 import auth
 import db
 from auth import CurrentUser, MeResponse
+from bank.router import router as bank_router
 
 # uvicorn 기본 로그 설정이 출력하는 로거를 써야 서버 터미널에 INFO 줄이 보인다.
 logger = logging.getLogger("uvicorn.error")
@@ -36,6 +37,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="KoFinGuard", lifespan=lifespan)
 app.include_router(auth.router)
+app.include_router(bank_router)
 
 
 @app.get("/api/health")

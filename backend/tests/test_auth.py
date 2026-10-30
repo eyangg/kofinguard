@@ -1,7 +1,7 @@
-from collections.abc import Iterator
 from datetime import datetime, timezone
 
 import pytest
+from conftest import login
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
@@ -12,23 +12,6 @@ import db
 import seed
 from main import app
 from models import Customer
-
-TEST_SECRET = "test-secret-" + "x" * 32
-
-
-@pytest.fixture
-def client(engine: Engine, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("KFG_SESSION_SECRET", TEST_SECRET)
-    with Session(engine) as s:
-        seed.seed(s)
-    auth.sessions.clear()
-    with TestClient(app) as c:
-        yield c
-    auth.sessions.clear()
-
-
-def login(c: TestClient, login_id: str = "minsu", password: str = seed.DEMO_PASSWORD):  # type: ignore[no-untyped-def]
-    return c.post("/api/auth/login", json={"login_id": login_id, "password": password})
 
 
 def test_login_success_sets_httponly_cookie(client: TestClient) -> None:
