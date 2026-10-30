@@ -1,0 +1,29 @@
+# 비밀값
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+
+# 로그
+*.log
+logs/
+
+# 큰 파일·결과물·졸프 원본
+models/
+artifacts/
+backend/uploads/
+capstone_ref/
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3

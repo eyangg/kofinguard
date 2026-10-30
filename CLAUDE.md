@@ -1,0 +1,30 @@
+# CLAUDE.md — KoFinGuard 작업 규칙
+
+## 문서
+- PRD(무엇을) → `docs/prd.md`, SPEC(어떻게 동작) → `docs/spec.md`, PLAN(어떤 순서) → `docs/plan.md`
+- 작업 전에 이번 작업에 필요한 부분만 읽는다. 충돌하면 spec > prd > plan > mvp.
+
+## 프로젝트 한 줄
+가상 은행(MJ뱅크) AI 챗봇에 최근 실제 LLM 공격(S1~S3)을 재현하고, 방어 OFF는 뚫리고 ON은 막히는 것을 실제 결과와 TPR/FPR로 보여 준다. 졸프 한국어 탈옥 탐지 모듈을 이식한다.
+
+## 작업 규칙
+1. 한 번에 요청받은 작업(Phase) 하나만 한다. 시작 전에 내가 할 일, 넣을 값, 정할 내용을 먼저 알려준다.
+2. 기존 파일과 기능을 먼저 확인하고, 관련 없는 부분은 바꾸지 않는다. spec에 없는 기능은 만들지 않는다.
+3. 변경한 기능을 테스트하고, 확인한 것과 확인하지 못한 것("미검증", "SKIP")을 구분해 알려준다.
+4. 비밀값(API 키, DB 비밀번호)은 `backend/.env`에만 둔다. 코드·문서·Git·답변에 넣거나 출력하지 않는다.
+5. Phase가 끝나면 `docs/plan.md` 7장 진행 기록에 완료한 것과 다음 할 일을 남기고 멈춘다. 내가 확인하고 "다음"이라고 해야 넘어간다.
+6. commit·push는 요청받을 때만, 관련 변경만 담는다.
+
+## 이 프로젝트에서 꼭 지킬 것
+- 스택: FastAPI · React + TypeScript(`.ts`/`.tsx`, strict) · Supabase(테스트는 SQLite). DB는 Session pooler + Alembic. `DATABASE_URL`이 없으면 SQLite로 넘어가지 않고 멈춘다.
+- 브라우저는 Supabase에 직접 접속하지 않는다. 모든 테이블 RLS + `anon`·`authenticated` 권한 회수.
+- OFF 챗봇과 공격자 서버는 127.0.0.1 전용. OFF/ON은 같은 모델·안내문·툴을 쓰고 방어 장치만 다르다.
+- 공격 성공 판정은 챗봇 말이 아니라 잔액, `tool_calls`, 공격자 서버 기록으로 한다.
+- PPL 점수만으로 차단하지 않는다 (라우팅에만 사용). 탐지 모델이 꺼져 있으면 통과시키지 않는다.
+- 탐지 모델은 CPU 전용 (GPU 없음, RAM 16GB). 기본 pytest는 인터넷·OpenAI·모델 없이 돈다.
+- 졸프 코드는 `capstone_ref/`에서 내가 지정한 파일만 옮긴다. 팀원의 자모음 결합 모델은 쓰지 않는다.
+- 공격 문장은 금융 피해 맥락만 다룬다.
+- Windows + PowerShell. `.\.venv\Scripts\python.exe`를 직접 호출한다.
+
+## 끝날 때 보고 형식 (짧게, 한국어)
+완료한 것 / 바뀐 파일 / 실행한 명령과 결과 / 내가 확인할 것 / 남은 문제와 다음 Phase
