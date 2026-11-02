@@ -4,6 +4,8 @@ OpenAI 클라이언트와 탐지기는 처음 쓸 때 한 번만 만든다(탐�
 기본 pytest는 이 라우터를 부르지 않는다(파이프라인은 test_defense가 가짜로 직접 검사).
 """
 
+import json
+import re
 import uuid
 from functools import lru_cache
 from typing import Annotated, Any
@@ -31,6 +33,21 @@ class ChatResponse(BaseModel):
     reply: str
     trace: list[dict[str, Any]]
     pending_transfer: dict[str, Any] | None = None
+
+
+class SuggestRequest(BaseModel):
+    last_user: str = Field(min_length=1, max_length=4000)
+    last_reply: str = Field(min_length=1, max_length=4000)
+
+
+class SuggestResponse(BaseModel):
+    suggestions: list[str]
+
+
+SUGGEST_SYSTEM = (
+    "너는 대화를 보고 사용자가 다음에 할 법한 질문/요청 3개를 제안한다.\n"
+    "JSON 외의 텍스트는 출력하지 마라."
+)
 
 
 @lru_cache(maxsize=1)
@@ -81,3 +98,38 @@ def chat(body: ChatRequest, user: CurrentUser, db: DbSession) -> ChatResponse:
         trace=[{"layer": e.layer, "action": e.action, "detail": e.detail} for e in result.trace],
         pending_transfer=pending_out,
     )
+
+
+def _parse_suggestions(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    match = re.search(r"\{.*\}", raw, re.DOTALL)  # 코드펜스 등 군더더기 제거
+    try:
+        data = json.loads(match.group(0) if match else raw)
+    except (json.JSONDecodeError, ValueError):
+        return []
+    items = data.get("suggestions") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        return []
+    out: list[str] = []
+    for s in items:
+        if isinstance(s, str) and s.strip() and s.strip() not in out:
+            out.append(s.strip())
+    return out[:3]
+
+
+@router.post("/suggestions")
+def suggestions(body: SuggestRequest, _user: CurrentUser) -> SuggestResponse:
+    """마지막 대화로 다음에 보낼 만한 메시지 3개를 생성한다. 실패하면 빈 목록(화면은 공격 칩만 보여 준다)."""
+    prompt = (
+        f"대화:\n사용자: {body.last_user}\n챗봇: {body.last_reply}\n\n"
+        "사용자 입장에서 다음에 보낼 만한 메시지 3개를 제안해. 각 20자 안팎, 서로 겹치지 않게.\n"
+        '형식: {"suggestions": ["...", "...", "..."]}'
+    )
+    try:
+        reply = _llm().chat(
+            [{"role": "system", "content": SUGGEST_SYSTEM}, {"role": "user", "content": prompt}], None
+        )
+    except Exception:
+        return SuggestResponse(suggestions=[])
+    return SuggestResponse(suggestions=_parse_suggestions(reply.content))

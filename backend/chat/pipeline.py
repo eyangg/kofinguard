@@ -36,10 +36,12 @@ class DetectorLike(Protocol):
     def check(self, text: str): ...  # -> detector.router.Verdict
 
 
-def _verdict_events(source: str, verdict) -> list[TraceEvent]:  # type: ignore[no-untyped-def]
+def _verdict_events(source: str, original: str, verdict) -> list[TraceEvent]:  # type: ignore[no-untyped-def]
     v = verdict.as_dict()
+    # D-01은 실제로 정리된 게 있을 때만 의미가 있다(changed). 변형이 없으면 화면에서 생략한다.
+    changed = v["normalized"] != original
     return [
-        TraceEvent("D-01", "정리", {"source": source, "normalized": v["normalized"][:120]}),
+        TraceEvent("D-01", "정리", {"source": source, "changed": changed, "normalized": v["normalized"][:120]}),
         TraceEvent("D-02", "점수", {"mean_ppl": v["mean_ppl"], "var_ppl": v["var_ppl"], "jamo": v["jamo_flag"]}),
         TraceEvent(
             "D-03",
@@ -62,7 +64,7 @@ class OnDefense:
             if not text:
                 continue
             verdict = self.detector.check(text)
-            events.extend(_verdict_events(source, verdict))
+            events.extend(_verdict_events(source, text, verdict))
             if verdict.action in _INPUT_BLOCKING:
                 return InputDecision(proceed=False, blocked_reply=MESSAGES[verdict.action], events=events)
         return InputDecision(proceed=True, events=events)

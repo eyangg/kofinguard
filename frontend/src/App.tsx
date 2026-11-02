@@ -1,27 +1,71 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { api } from './api'
+import { AttackerLog } from './components/AttackerLog'
+import { ComparePage } from './components/ComparePage'
+import { Login } from './components/Login'
+import type { Me } from './types'
 
-type Health = { status: string }
+type Tab = 'compare' | 'attacker'
 
 function App() {
-  const [health, setHealth] = useState<string>('확인 중...')
+  const [me, setMe] = useState<Me | null>(null)
+  const [checking, setChecking] = useState(true)
+  const [tab, setTab] = useState<Tab>('compare')
+  const [balance, setBalance] = useState<number | null>(null)
 
   useEffect(() => {
-    fetch('/api/health')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json() as Promise<Health>
-      })
-      .then((data) => setHealth(data.status))
-      .catch((err: unknown) => {
-        setHealth(`연결 실패 (${err instanceof Error ? err.message : '알 수 없음'})`)
-      })
+    api
+      .me()
+      .then(setMe)
+      .catch(() => setMe(null))
+      .finally(() => setChecking(false))
   }, [])
 
+  const refreshBalance = useCallback(() => {
+    api.account().then((a) => setBalance(a.balance)).catch(() => setBalance(null))
+  }, [])
+
+  useEffect(() => {
+    if (me) refreshBalance()
+  }, [me, refreshBalance])
+
+  async function logout() {
+    await api.logout().catch(() => undefined)
+    setMe(null)
+    setBalance(null)
+  }
+
+  if (checking) return <div className="center">확인 중…</div>
+  if (!me) return <Login onLogin={setMe} />
+
   return (
-    <main>
-      <h1>KoFinGuard</h1>
-      <p>백엔드 상태: {health}</p>
-    </main>
+    <div className="app">
+      <header className="topbar">
+        <strong>KoFinGuard</strong>
+        <nav>
+          <button type="button" className={tab === 'compare' ? 'on' : ''} onClick={() => setTab('compare')}>
+            비교 채팅
+          </button>
+          <button type="button" className={tab === 'attacker' ? 'on' : ''} onClick={() => setTab('attacker')}>
+            공격자 기록
+          </button>
+        </nav>
+        <span className="who">
+          {me.name} 님
+          <button type="button" onClick={() => void logout()}>
+            로그아웃
+          </button>
+        </span>
+      </header>
+
+      <main>
+        {tab === 'compare' ? (
+          <ComparePage balance={balance} onBalanceChange={refreshBalance} />
+        ) : (
+          <AttackerLog />
+        )}
+      </main>
+    </div>
   )
 }
 

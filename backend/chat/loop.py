@@ -96,6 +96,15 @@ def user_content(message: str, attachment_text: str | None) -> str:
     return f"{message}\n\n[첨부 문서 내용]\n{attachment_text}"
 
 
+def _tool_layer(tool: str) -> str:
+    # 어느 서버 방어가 처리했는지로 매핑: 고객정보=권한 검사, 송금=서버 규칙, 그 외=문서 격리
+    if tool == "get_customer_profile":
+        return "D-05"
+    if tool == "create_transfer":
+        return "D-06"
+    return "D-07"
+
+
 def _save_events(session: Session, message_id: int, events: list[TraceEvent]) -> None:
     for e in events:
         session.add(DefenseEvent(message_id=message_id, layer=e.layer, action=e.action, detail=e.detail))
@@ -134,6 +143,7 @@ def run_turn(
     doc_text = defense.wrap_attachment(attachment_text) if attachment_text is not None else None
     history.append({"role": "user", "content": user_content(message, doc_text)})
     reply = ""
+    tool_events: list[TraceEvent] = []
     for _ in range(MAX_TOOL_ROUNDS):
         answer = llm.chat([system_message(user), *history], TOOLS if use_tools else None)
         history.append(answer.as_message())
@@ -153,18 +163,26 @@ def run_turn(
                     reason=result.reason,
                 )
             )
+            # D-05~D-07: 서버가 툴 호출을 어떻게 처리했는지 근거에 남긴다 (방어 ON에서만).
+            if mode == "on":
+                tool_events.append(
+                    TraceEvent(_tool_layer(call.name), "서버 검사", {
+                        "tool": call.name, "allowed": result.allowed, "reason": result.reason,
+                    })
+                )
             history.append(
                 {"role": "tool", "tool_call_id": call.id, "content": json.dumps(result.content, ensure_ascii=False)}
             )
         session.commit()
     else:
         reply = "요청을 처리하지 못했습니다. 다시 말씀해 주세요."
+    trace.extend(tool_events)
 
     # D-08: 답변 안전 처리 (방어 ON에서만). OFF는 답변을 그대로 둔다(화면이 HTML로 그려 S2 재현).
     reply, filter_events = defense.filter_output(reply)
     trace.extend(filter_events)
 
-    _save_events(session, user_msg.id, decision.events + filter_events)
+    _save_events(session, user_msg.id, decision.events + tool_events + filter_events)
     session.add(ChatMessage(session_id=session_id, mode=mode, role="assistant", content=reply))
     session.commit()
     return TurnResult(reply=reply, tool_calls=records, trace=trace, message_id=user_msg.id)
