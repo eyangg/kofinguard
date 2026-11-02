@@ -206,3 +206,26 @@ A. OpenAI 클라이언트와 탐지기(Qwen GGUF 로딩 약 3초)는 처음 쓸 
 
 Q. S1을 막은 게 탐지기인가 서버인가?
 A. 둘 다 막는다. 명령줄 시나리오(가짜 탐지기)에서는 서버 권한 검사(D-05)가 막았고, 실제 `/api/chat`에서는 Llama Guard 1b가 입력 단계에서 먼저 막았다. 발표에서는 "탐지기만으로는 부족하고 서버가 최종적으로 막는다"가 핵심이라 D-05를 강조한다.
+
+---
+
+## 2026-11-02 · Phase 8 (Supabase 연결)
+
+**이해한 것**
+
+Q1. 지금까지 SQLite로 잘 됐는데 왜 Supabase로 바꾸나?
+A. SQLite는 내 컴퓨터 안의 파일 하나다. 시연 데이터를 진짜 클라우드 DB(수업 필수 스택)에 저장해 보여 주려고 Supabase(PostgreSQL)로 바꾼다. 코드는 그대로고, `.env`의 `DATABASE_URL`만 Supabase 주소로 바꾸면 된다. 같은 Alembic 명령으로 테이블이 똑같이 만들어진다.
+
+Q2. RLS(행 수준 보안)가 뭐고 왜 켜나?
+A. Supabase는 테이블을 만들면 브라우저가 공개 키(anon)로 **DB에 직접 접근**할 수 있는 REST API를 자동으로 열어 준다. 우리 규칙은 "브라우저는 Supabase에 직접 붙지 않고 FastAPI만 거친다"이다. 그래서 모든 테이블에 RLS를 켜고(정책이 없으면 외부 역할은 전부 거부) anon·authenticated의 권한을 회수했다. 우리 백엔드는 테이블 소유자로 접속해서 RLS를 우회하므로 정상 동작한다(그래서 FORCE는 쓰지 않았다).
+
+Q3. 드라이버 오류(psycopg)는 왜 났나?
+A. Supabase가 준 연결 문자열이 psycopg(v3) 드라이버를 가리켰는데, 우리는 Windows에서 잘 설치되는 psycopg2를 깔았다. 그래서 `db.py`에서 PostgreSQL 주소는 어떤 드라이버 문자열이 와도 psycopg2로 통일하게 했다.
+
+**겪은 문제**
+
+Q. BankGuard 프로젝트에 예전 테이블(users, audit_log 등 9개)이 있었다.
+A. 무료 플랜이라 BankGuard를 재사용했는데, `accounts`·`pending_transfers`가 이름이 겹쳐 그대로 두면 테이블 생성이 실패한다. 삭제 전에 테이블 목록과 행 수를 사람에게 보여 주고 확인받은 뒤 9개를 모두 DROP하고 새로 만들었다.
+
+Q. Supabase에 제대로 들어갔는지 어떻게 확인했나?
+A. `pytest -m postgres`로 테이블 9개 존재·모든 테이블 RLS 켜짐·anon 권한 없음·백엔드 읽기쓰기를 검증했고, 앱을 Supabase에 붙여 로그인하고 잔액(300만원)을 읽어 확인했다. Supabase 대시보드 Table Editor에서도 customers 2명, accounts 2개가 보인다.

@@ -53,6 +53,9 @@ def resolve_url(url: str) -> URL:
         database = parsed.database
         if database and database != ":memory:" and not Path(database).is_absolute():
             parsed = parsed.set(database=str((BACKEND_DIR / database).resolve()))
+    elif parsed.get_backend_name() == "postgresql":
+        # Supabase가 어떤 드라이버 문자열을 주든 설치해 둔 psycopg2로 통일한다.
+        parsed = parsed.set(drivername="postgresql+psycopg2")
     return parsed
 
 
