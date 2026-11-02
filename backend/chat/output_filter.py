@@ -9,6 +9,15 @@ import html
 import re
 from dataclasses import dataclass, field
 
+# D-09 시스템 프롬프트 유출 차단: 답변에 내부 지침 조각이 2개 이상 그대로 있으면 유출로 본다.
+# (고객에게 정상적으로 할 말이 아닌, 시스템 프롬프트에만 있는 문구들)
+PROMPT_LEAK_MARKERS = ["고객 상담 챗봇입니다", "본인 것만", "짧고 정확하게", "마크다운 표"]
+PROMPT_LEAK_REFUSAL = "내부 운영 지침은 안내해 드릴 수 없습니다."
+
+
+def detect_prompt_leak(reply: str) -> bool:
+    return sum(1 for m in PROMPT_LEAK_MARKERS if m in reply) >= 2
+
 # 마크다운 이미지 ![..](http...) 와 링크 [..](http...)
 _IMAGE = re.compile(r"!\[[^\]]*\]\((https?://[^)]*)\)", re.IGNORECASE)
 _LINK = re.compile(r"\[([^\]]*)\]\((https?://[^)]*)\)", re.IGNORECASE)

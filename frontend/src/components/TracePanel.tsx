@@ -9,6 +9,7 @@ const LAYER_NAME: Record<string, string> = {
   'D-06': '서버 규칙·송금',
   'D-07': '문서 격리',
   'D-08': '답변 안전 처리',
+  'D-09': '시스템 프롬프트 유출 차단',
 }
 
 type Tone = 'ok' | 'warn' | 'block'
@@ -80,6 +81,8 @@ function describe(e: TraceEvent): Row {
         text: changes.length ? `답변에서 바꾼 것: ${changes.join(', ')}` : '답변을 안전하게 처리했어요',
       }
     }
+    case 'D-09':
+      return { layer: e.layer, name, tone: 'block', text: '답변에 내부 지침이 새어 차단했어요 (시스템 프롬프트 유출)' }
     default:
       return { layer: e.layer, name, tone: 'ok', text: e.action }
   }

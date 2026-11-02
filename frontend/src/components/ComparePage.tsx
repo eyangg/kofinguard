@@ -18,6 +18,7 @@ export function ComparePage({ balance, onBalanceChange }: { balance: number | nu
   const [armed, setArmed] = useState<{ id: string; message: string } | null>(null)
   // 마지막 답변 뒤 LLM이 제안한 다음 질문(정상 후속). 공격 칩은 항상 따로 고정으로 보인다.
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [featuredAttackId, setFeaturedAttackId] = useState<string | null>(null) // 추천에 섞을 공격 1개
   const [dropAttach, setDropAttach] = useState(false) // ✕로 공격 첨부(청구서)를 취소했는지
   const [uploaded, setUploaded] = useState<{ id: number; filename: string } | null>(null) // 사용자가 직접 올린 파일
   const fileRef = useRef<HTMLInputElement>(null)
@@ -73,7 +74,12 @@ export function ComparePage({ balance, onBalanceChange }: { balance: number | nu
     if (reply) {
       api
         .suggestions(message, reply)
-        .then((r) => setSuggestions(r.suggestions))
+        .then((r) => {
+          // 일반 추천 2개만 두고, 추가 공격(pinned=false) 1개를 섞어 '3개 중 1개는 공격'이 되게 한다.
+          setSuggestions(r.suggestions.slice(0, 2))
+          const extras = presets.filter((p) => !p.pinned)
+          if (extras.length > 0) setFeaturedAttackId(extras[Math.floor(Math.random() * extras.length)].id)
+        })
         .catch(() => setSuggestions([]))
     }
   }
@@ -113,6 +119,9 @@ export function ComparePage({ balance, onBalanceChange }: { balance: number | nu
     }
   }
 
+  // S1·S2 고정 칩은 항상, 추천이 뜨면 그 묶음에 공격 1개를 더 끼워넣는다(추천 3개 = 공격 1 + 일반 2)
+  const featured = suggestions.length > 0 && featuredAttackId ? presets.find((p) => p.id === featuredAttackId) : undefined
+
   // 지금 채워진 공격이 첨부(청구서 PDF)를 함께 보내는지
   const armedPreset = armed ? presets.find((p) => p.id === armed.id) : undefined
   const presetAttach = Boolean(armedPreset?.has_attachment) && !dropAttach && !uploaded
@@ -147,7 +156,8 @@ export function ComparePage({ balance, onBalanceChange }: { balance: number | nu
         }}
       >
         <div className="box-chips">
-          {presets.map((p) => (
+          {/* S1·S2 고정 공격 칩 (항상) */}
+          {presets.filter((p) => p.pinned).map((p) => (
             <button
               key={p.id}
               type="button"
@@ -155,11 +165,25 @@ export function ComparePage({ balance, onBalanceChange }: { balance: number | nu
               disabled={sending}
               onClick={() => fillFromChip(p)}
             >
+              <span className="chip-kind attack">공격</span>
               {p.label}
             </button>
           ))}
+          {/* 추천 묶음: 공격 1개 + 일반 2개 */}
+          {featured && (
+            <button
+              type="button"
+              className="chip-attack"
+              disabled={sending}
+              onClick={() => fillFromChip(featured)}
+            >
+              <span className="chip-kind attack">공격</span>
+              {featured.label}
+            </button>
+          )}
           {suggestions.map((s, i) => (
             <button key={i} type="button" className="chip-reply" disabled={sending} onClick={() => void sendBoth(s)}>
+              <span className="chip-kind reply">일반</span>
               {s}
             </button>
           ))}

@@ -27,7 +27,7 @@ def make_invoice(path: Path, hidden: str) -> None:
         "청구일: 2026-10-30",
         f"공급자: {S2_INVOICE['supplier']}",
         "품목: 노트북 거치대 외 2건",
-        f"입금 계좌: MJ뱅크 {S2_INVOICE['account']}",
+        f"입금 계좌: YanggBank {S2_INVOICE['account']}",
         f"청구 금액: {S2_INVOICE['amount']:,}원",
         "",
         "기한 내 입금 부탁드립니다. (가상 문서)",

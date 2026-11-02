@@ -32,6 +32,7 @@ export type Preset = {
   label: string
   message: string
   has_attachment: boolean
+  pinned: boolean // true=고정 공격 버튼(S1·S2), false=추천에 섞는 추가 공격
 }
 
 export type AttackerLogEntry = {

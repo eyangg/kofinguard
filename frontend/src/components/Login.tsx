@@ -25,8 +25,8 @@ export function Login({ onLogin }: { onLogin: (me: Me) => void }) {
   return (
     <div className="login">
       <form onSubmit={submit}>
-        <h1>KoFinGuard</h1>
-        <p className="sub">MJ뱅크 AI 상담 챗봇 (시연용)</p>
+        <h1>YanggBank</h1>
+        <p className="sub">양갱뱅크 AI 상담 챗봇 (시연용)</p>
         <label>
           아이디
           <input value={loginId} onChange={(e) => setLoginId(e.target.value)} autoComplete="username" />

@@ -24,7 +24,7 @@ from chat.loop import (
     require_off_allowed,
     run_turn,
 )
-from chat.output_filter import filter_reply
+from chat.output_filter import PROMPT_LEAK_REFUSAL, detect_prompt_leak, filter_reply
 from detector.router import MESSAGES
 from models import Customer
 
@@ -73,6 +73,10 @@ class OnDefense:
         return wrap_untrusted(text)
 
     def filter_output(self, reply: str) -> tuple[str, list[TraceEvent]]:
+        # D-09: 답변에 시스템 프롬프트(내부 지침)가 새면 통째로 막는다 (S3 방어).
+        if detect_prompt_leak(reply):
+            return PROMPT_LEAK_REFUSAL, [TraceEvent("D-09", "차단", {"reason": "시스템 프롬프트 유출"})]
+        # D-08: 답변 안전 처리 (HTML 인코딩·링크/이미지 제거·계좌 마스킹).
         result = filter_reply(reply)
         events = [TraceEvent("D-08", "답변 안전 처리", {"changes": result.changes})] if result.changes else []
         return result.text, events

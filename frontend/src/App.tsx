@@ -41,7 +41,7 @@ function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <strong>KoFinGuard</strong>
+        <strong>YanggBank</strong>
         <nav>
           <button type="button" className={tab === 'compare' ? 'on' : ''} onClick={() => setTab('compare')}>
             비교 채팅

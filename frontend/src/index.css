@@ -281,11 +281,28 @@ main {
   margin-bottom: 10px;
 }
 .box-chips button {
-  padding: 7px 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px 6px 7px;
   border-radius: 999px;
   font-weight: 700;
   font-size: 13px;
   transition: transform 0.1s, box-shadow 0.15s;
+}
+/* 칩 종류 표시: 공격 / 일반 */
+.chip-kind {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #fff;
+}
+.chip-kind.attack {
+  background: var(--off);
+}
+.chip-kind.reply {
+  background: var(--primary);
 }
 .box-chips button:disabled {
   opacity: 0.45;
@@ -516,8 +533,47 @@ main {
     transform: rotate(360deg);
   }
 }
+.reply {
+  white-space: normal; /* 마크다운이 서식을 처리하므로 빈 줄을 그대로 두지 않는다 */
+}
 .reply :where(img) {
   max-width: 100%;
+}
+.reply :where(p) {
+  margin: 0 0 8px;
+}
+.reply > :first-child {
+  margin-top: 0;
+}
+.reply > :last-child {
+  margin-bottom: 0;
+}
+.reply :where(p):last-child {
+  margin-bottom: 0;
+}
+.reply :where(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 13px;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.reply :where(th) {
+  background: #eef2f6;
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.reply :where(td) {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.reply :where(tr):last-child td {
+  border-bottom: 0;
 }
 
 .pending {

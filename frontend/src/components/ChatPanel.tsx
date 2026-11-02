@@ -1,3 +1,6 @@
+import ReactMarkdown from 'react-markdown'
+import rehypeRaw from 'rehype-raw'
+import remarkGfm from 'remark-gfm'
 import { ApiError, api } from '../api'
 import type { ChatResponse, Mode } from '../types'
 import { TracePanel } from './TracePanel'
@@ -58,6 +61,40 @@ export function ChatPanel({
   )
 }
 
+// 답변을 '표'와 '그 외 글' 블록으로 쪼갠다 → 안내 문장과 표가 따로 말풍선으로 나온다.
+function splitReply(reply: string): string[] {
+  const isTableLine = (l: string) => /^\s*\|/.test(l)
+  const segments: string[] = []
+  let buf: string[] = []
+  let inTable = false
+  const flush = () => {
+    const text = buf.join('\n').trim()
+    if (text) segments.push(text)
+    buf = []
+  }
+  for (const line of reply.split('\n')) {
+    const t = isTableLine(line)
+    if (t !== inTable) {
+      flush()
+      inTable = t
+    }
+    buf.push(line)
+  }
+  flush()
+  return segments.length > 0 ? segments : [reply]
+}
+
+function Markdown({ mode, text }: { mode: Mode; text: string }) {
+  // OFF는 원본 HTML까지 렌더(S2 공격 재현), ON은 마크다운만(코드는 글자로만).
+  return (
+    <div className="reply">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={mode === 'off' ? [rehypeRaw] : []}>
+        {text}
+      </ReactMarkdown>
+    </div>
+  )
+}
+
 function BotReply({
   mode,
   result,
@@ -67,18 +104,21 @@ function BotReply({
   result: ChatResponse
   onConfirmed: () => void
 }) {
+  const segments = splitReply(result.reply)
   return (
-    <div className="msg bot">
-      {mode === 'off' ? (
-        // OFF 화면은 답변을 HTML로 그린다 — S2 공격 재현용. 127.0.0.1 로컬 시연 전용이라 의도적이다.
-        <div className="reply" dangerouslySetInnerHTML={{ __html: result.reply }} />
-      ) : (
-        // ON 화면은 답변을 글자로만 그린다 (실행 안 됨).
-        <div className="reply">{result.reply}</div>
+    <>
+      {segments.map((seg, i) => (
+        <div className="msg bot" key={i}>
+          <Markdown mode={mode} text={seg} />
+        </div>
+      ))}
+      {(result.pending_transfer || result.trace.length > 0) && (
+        <div className="msg bot">
+          {result.pending_transfer && <PendingCard pending={result.pending_transfer} onConfirmed={onConfirmed} />}
+          <TracePanel trace={result.trace} />
+        </div>
       )}
-      {result.pending_transfer && <PendingCard pending={result.pending_transfer} onConfirmed={onConfirmed} />}
-      <TracePanel trace={result.trace} />
-    </div>
+    </>
   )
 }
 
