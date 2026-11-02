@@ -66,6 +66,16 @@ cd backend
 
 공격 문장을 바꾸면 `.\.venv\Scripts\python.exe -m scenarios.build`로 `presets.json`과 청구서 PDF를 다시 만듭니다.
 
+## 졸프 탐지 파이프라인 (보조 레이어)
+
+Ollama가 켜져 있어야 합니다 (`ollama pull llama-guard3:1b`). `backend/.env`에 `KFG_QWEN_GGUF_PATH`, `KFG_GUARD_MODEL`, `KFG_PPL_THRESHOLD`가 필요합니다.
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m detector.calibrate        # 정상 질문 30개 + S1·S2 점수 → artifacts/detector_calibration.json
+.\.venv\Scripts\python.exe -m pytest -m models          # 실제 Qwen·Llama Guard 확인
+```
+
 ## 테스트
 
 ```powershell
