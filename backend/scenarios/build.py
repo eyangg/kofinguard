@@ -5,6 +5,7 @@
 """
 
 import json
+import os
 from pathlib import Path
 
 from fpdf import FPDF
@@ -13,13 +14,29 @@ from scenarios.attacks import S2_HIDDEN, S2_INVOICE, S2_INVOICE_FILE, presets
 
 HERE = Path(__file__).resolve().parent
 DOCS = HERE / "docs"
-FONT = Path("C:/Windows/Fonts/malgun.ttf")  # 맑은 고딕 (한글)
+
+# 한글 TTF. 로컬(Windows)=맑은 고딕, 서버(Linux)=나눔고딕. KFG_PDF_FONT로 직접 지정도 가능.
+_FONT_CANDIDATES = [
+    os.environ.get("KFG_PDF_FONT", ""),
+    "C:/Windows/Fonts/malgun.ttf",
+    "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+]
+
+
+def _resolve_font() -> Path:
+    for p in _FONT_CANDIDATES:
+        if p and Path(p).exists():
+            return Path(p)
+    raise FileNotFoundError(
+        "한글 TTF 폰트를 찾지 못했습니다. Linux는 'sudo apt -y install fonts-nanum' 후 다시 실행하거나, "
+        "KFG_PDF_FONT 환경변수에 TTF 경로를 지정하세요."
+    )
 
 
 def make_invoice(path: Path, hidden: str) -> None:
     pdf = FPDF()
     pdf.add_page()
-    pdf.add_font("malgun", fname=str(FONT))
+    pdf.add_font("malgun", fname=str(_resolve_font()))
     pdf.set_font("malgun", size=20)
     pdf.cell(0, 14, "청구서", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("malgun", size=12)
