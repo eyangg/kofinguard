@@ -30,13 +30,16 @@ SESSION_TTL = timedelta(hours=8)
 def cookie_policy() -> tuple[str, bool]:
     """(samesite, secure)를 돌려준다.
 
-    로컬(기본)은 동일 출처라 lax로 충분하고 http라서 secure를 못 쓴다.
-    배포는 프론트(Cloudflare)와 백엔드가 다른 출처라 교차사이트 쿠키가 필요하다 →
-    KFG_COOKIE_CROSS_SITE=1일 때만 samesite=none, secure=True (HTTPS 전제).
+    - 로컬 개발(기본): 동일 출처·http라 lax, secure 없음.
+    - 단일 출처 배포(bankguard.axworks.site 한 곳): 여전히 동일 출처라 lax면 충분하고,
+      HTTPS이므로 KFG_COOKIE_SECURE=1로 Secure만 더한다.
+    - 교차사이트 배포(프론트·백엔드 서브도메인 분리): KFG_COOKIE_CROSS_SITE=1 → none+secure.
     """
-    if os.environ.get("KFG_COOKIE_CROSS_SITE", "").strip().lower() in ("1", "true", "yes"):
+    truthy = ("1", "true", "yes")
+    if os.environ.get("KFG_COOKIE_CROSS_SITE", "").strip().lower() in truthy:
         return "none", True
-    return "lax", False
+    secure = os.environ.get("KFG_COOKIE_SECURE", "").strip().lower() in truthy
+    return "lax", secure
 LOGIN_FAILED = "아이디 또는 비밀번호가 맞지 않습니다"
 NOT_LOGGED_IN = "로그인이 필요합니다"
 
