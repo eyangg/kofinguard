@@ -7,19 +7,24 @@ import type { ChatResponse, Mode } from '../types'
 import { TracePanel } from './TracePanel'
 
 // ON 보안 검사는 수십 초 걸려서, 기다리는 동안 단계별 진행 메시지를 돌린다.
+// D-02(SmoothPPL)·D-03(Llama Guard)은 서버에서 병렬로 돌므로 한 단계로 묶어 보여 준다.
 const BOAN_STEPS = [
   '입력 문장 정리 중…',
-  'SmoothPPL 점수 측정 중…',
-  'Llama Guard 안전 검사 중…',
+  'SmoothPPL · Llama Guard 동시 검사 중…',
   '답변에 숨은 코드 확인 중…',
   '마무리 중…',
 ]
 
 function SecurityLoader() {
   const [i, setI] = useState(0)
+  const [sec, setSec] = useState(0)
   useEffect(() => {
-    const t = setInterval(() => setI((v) => (v + 1 < BOAN_STEPS.length ? v + 1 : v)), 2500)
-    return () => clearInterval(t)
+    const step = setInterval(() => setI((v) => (v + 1 < BOAN_STEPS.length ? v + 1 : v)), 2500)
+    const clock = setInterval(() => setSec((s) => s + 1), 1000)
+    return () => {
+      clearInterval(step)
+      clearInterval(clock)
+    }
   }, [])
   return (
     <div className="msg bot loading boan">
@@ -29,8 +34,9 @@ function SecurityLoader() {
         ))}
       </span>
       <div className="boan-body">
-        <span className="boan-title">보안 검사 중</span>
+        <span className="boan-title">보안 검사 중 · {sec}초</span>
         <span className="boan-step">{BOAN_STEPS[i]}</span>
+        <span className="boan-note">여러 탐지기를 동시에 돌리는 중이에요. 최초 실행은 모델을 메모리에 올리느라 더 걸릴 수 있어요.</span>
       </div>
     </div>
   )

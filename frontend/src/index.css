@@ -578,6 +578,11 @@ main {
   font-size: 13px;
   color: #4b5563;
 }
+.boan-note {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
 .reply {
   white-space: normal; /* 마크다운이 서식을 처리하므로 빈 줄을 그대로 두지 않는다 */
 }

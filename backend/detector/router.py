@@ -12,6 +12,7 @@
 분산(var_ppl)은 기록만 한다.
 """
 
+import concurrent.futures as cf
 import os
 import time
 from dataclasses import asdict, dataclass, field
@@ -60,26 +61,41 @@ class Detector:
         self.ppl_threshold = ppl_threshold
         self.num_samples = num_samples
 
+    def _run_ppl(self, text: str) -> tuple[Any, float]:
+        t = time.perf_counter()
+        stats = calculate_smooth_stats(text, self.scorer, self.num_samples)
+        return stats, time.perf_counter() - t
+
+    def _run_guard(self, normalized: str) -> tuple[Any, float]:
+        t = time.perf_counter()
+        guard = self.guard.judge(normalized)
+        return guard, time.perf_counter() - t
+
     def check(self, text: str) -> Verdict:
         verdict = Verdict(action="unavailable", normalized=normalize(text))
 
-        t = time.perf_counter()
-        try:
-            stats = calculate_smooth_stats(text, self.scorer, self.num_samples)
-        except Exception as e:  # 모델 오류도 통과시키지 않는다
-            verdict.error = f"SmoothPPL 실패 ({type(e).__name__})"
-            return verdict
-        verdict.timings["smoothppl"] = time.perf_counter() - t
-        verdict.mean_ppl, verdict.var_ppl, verdict.jamo_flag = stats.mean_ppl, stats.var_ppl, stats.jamo_flag
+        # D-02(SmoothPPL)와 D-03(Llama Guard)은 서로 독립이라 병렬로 돌려 대기 시간을 줄인다.
+        # (llama_cpp 추론과 ollama HTTP 호출이 각각 GIL을 풀어 2코어에서 동시에 진행된다.)
+        # D-04 결정은 둘 다 끝난 뒤에 한다. 어느 하나라도 실패하면 통과시키지 않는다(unavailable).
+        with cf.ThreadPoolExecutor(max_workers=2) as pool:
+            ppl_future = pool.submit(self._run_ppl, text)
+            guard_future = pool.submit(self._run_guard, verdict.normalized)
 
-        t = time.perf_counter()
-        try:
-            guard = self.guard.judge(verdict.normalized)
-        except GuardUnavailableError as e:
-            verdict.error = str(e)
-            return verdict
-        verdict.timings["guard"] = time.perf_counter() - t
-        verdict.guard_safe, verdict.guard_categories = guard.safe, guard.categories
+            try:
+                stats, ppl_time = ppl_future.result()
+            except Exception as e:  # 모델 오류도 통과시키지 않는다
+                verdict.error = f"SmoothPPL 실패 ({type(e).__name__})"
+                return verdict
+            verdict.timings["smoothppl"] = ppl_time
+            verdict.mean_ppl, verdict.var_ppl, verdict.jamo_flag = stats.mean_ppl, stats.var_ppl, stats.jamo_flag
+
+            try:
+                guard, guard_time = guard_future.result()
+            except GuardUnavailableError as e:
+                verdict.error = str(e)
+                return verdict
+            verdict.timings["guard"] = guard_time
+            verdict.guard_safe, verdict.guard_categories = guard.safe, guard.categories
 
         if not guard.safe:
             verdict.action = "block"
