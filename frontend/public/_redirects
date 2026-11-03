@@ -1,0 +1,2 @@
+# SPA 폴백: 어떤 경로로 들어와도 index.html을 돌려줘 React 라우팅이 처리하게 한다.
+/*    /index.html   200

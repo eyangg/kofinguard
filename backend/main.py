@@ -5,10 +5,12 @@
 """
 
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 import attachments
 import auth
@@ -39,6 +41,20 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="KoFinGuard", lifespan=lifespan)
+
+# 배포 시 프론트(Cloudflare)는 백엔드와 다른 출처라 CORS 허용이 필요하다. 쿠키를 주고받으므로
+# allow_credentials=True이며, 이 경우 와일드카드 출처는 쓸 수 없어 정확한 출처만 등록한다.
+# 로컬 개발은 Vite 프록시(동일 출처)라 KFG_FRONTEND_ORIGIN을 비워 두면 CORS를 켜지 않는다.
+_frontend_origins = [o.strip() for o in os.environ.get("KFG_FRONTEND_ORIGIN", "").split(",") if o.strip()]
+if _frontend_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_frontend_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
 app.include_router(auth.router)
 app.include_router(bank_router)
 app.include_router(attachments.router)

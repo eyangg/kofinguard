@@ -1,0 +1,13 @@
+# Cloudflare Pages 정적 헤더. 공격 코드가 실행되는 HTML 페이지(app.도메인)는 여기서 서빙되므로
+# XSS 봉쇄 CSP는 백엔드가 아니라 이 파일에 둔다.
+#
+# !! 배포 전 아래 https://api.example.com 을 실제 백엔드(api.도메인) 주소로 바꾸세요 !!
+#
+# 중간 정책의 의도:
+#  - script-src 'unsafe-inline' → OFF 데모에서 삽입된 onerror 코드가 "실제로 실행"되는 건 유지
+#  - connect-src/img-src/script-src 에 우리 백엔드만 허용 → 유출은 우리 수집 엔드포인트로만 가고,
+#    evil.com 등 외부 출처로는 못 나감(악용 차단)
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://api.example.com; connect-src 'self' https://api.example.com; img-src 'self' https://api.example.com data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; base-uri 'self'; object-src 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer

@@ -25,6 +25,18 @@ from passwords import hash_password, verify_password
 
 COOKIE_NAME = "kfg_session"
 SESSION_TTL = timedelta(hours=8)
+
+
+def cookie_policy() -> tuple[str, bool]:
+    """(samesite, secure)를 돌려준다.
+
+    로컬(기본)은 동일 출처라 lax로 충분하고 http라서 secure를 못 쓴다.
+    배포는 프론트(Cloudflare)와 백엔드가 다른 출처라 교차사이트 쿠키가 필요하다 →
+    KFG_COOKIE_CROSS_SITE=1일 때만 samesite=none, secure=True (HTTPS 전제).
+    """
+    if os.environ.get("KFG_COOKIE_CROSS_SITE", "").strip().lower() in ("1", "true", "yes"):
+        return "none", True
+    return "lax", False
 LOGIN_FAILED = "아이디 또는 비밀번호가 맞지 않습니다"
 NOT_LOGGED_IN = "로그인이 필요합니다"
 
@@ -158,12 +170,14 @@ def login(body: LoginRequest, response: Response, db: DbSession, kfg_session: Se
     if old_sid:
         sessions.delete(old_sid)
     sid = sessions.create(customer.id)
+    samesite, secure = cookie_policy()
     response.set_cookie(
         COOKIE_NAME,
         make_cookie_value(sid),
         max_age=int(SESSION_TTL.total_seconds()),
         httponly=True,
-        samesite="lax",
+        samesite=samesite,
+        secure=secure,
         path="/",
     )
     return MeResponse.of(customer)
@@ -174,5 +188,6 @@ def logout(response: Response, kfg_session: SessionCookie = None) -> dict[str, s
     sid = read_cookie_value(kfg_session)
     if sid:
         sessions.delete(sid)
-    response.delete_cookie(COOKIE_NAME, path="/", httponly=True, samesite="lax")
+    samesite, secure = cookie_policy()
+    response.delete_cookie(COOKIE_NAME, path="/", httponly=True, samesite=samesite, secure=secure)
     return {"status": "ok"}

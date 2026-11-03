@@ -16,9 +16,14 @@ class ApiError extends Error {
   }
 }
 
+// 배포 시 프론트(Cloudflare)와 백엔드(Lightsail)는 다른 출처다. VITE_API_BASE로 백엔드 주소를 받고,
+// 로컬 개발에서는 비워 두면 '' → '/api/...'가 Vite 프록시로 백엔드에 전달된다.
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '')
+
 async function req<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     ...options,
+    credentials: 'include', // 교차 출처에서도 세션 쿠키를 보낸다 (백엔드는 SameSite=None 쿠키 사용)
     headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
   })
   if (!res.ok) {
@@ -50,7 +55,11 @@ export const api = {
     const form = new FormData()
     form.append('file', file)
     // FormData는 Content-Type을 브라우저가 경계값과 함께 자동 설정하므로 직접 지정하지 않는다.
-    const res = await fetch('/api/attachments', { method: 'POST', body: form })
+    const res = await fetch(API_BASE + '/api/attachments', {
+      method: 'POST',
+      body: form,
+      credentials: 'include',
+    })
     if (!res.ok) {
       let detail = `HTTP ${res.status}`
       try {
