@@ -7,7 +7,7 @@ const EMPTY: PanelState = { loading: false }
 
 type View = 'both' | 'off' | 'on'
 
-export function ComparePage({ balance, onBalanceChange }: { balance: number | null; onBalanceChange: () => void }) {
+export function ComparePage() {
   const [presets, setPresets] = useState<Preset[]>([])
   const [input, setInput] = useState('')
   const [off, setOff] = useState<PanelState>(EMPTY)
@@ -65,7 +65,6 @@ export function ComparePage({ balance, onBalanceChange }: { balance: number | nu
         .then((result) => (setOn({ loading: false, user: message, attachment, result }), result))
         .catch((err) => (setOn({ loading: false, user: message, attachment, error: msg(err) }), null)),
     ])
-    onBalanceChange()
     setUploaded(null) // 보낸 뒤 올린 파일 첨부는 비운다
     setSending(false)
 
@@ -140,12 +139,11 @@ export function ComparePage({ balance, onBalanceChange }: { balance: number | nu
             방어 ON만
           </button>
         </div>
-        <div className="balance">내 잔액: {balance === null ? '—' : `${balance.toLocaleString()}원`}</div>
       </div>
 
       <div className={`panels view-${view}`}>
-        {view !== 'on' && <ChatPanel mode="off" state={off} onConfirmed={onBalanceChange} />}
-        {view !== 'off' && <ChatPanel mode="on" state={on} onConfirmed={onBalanceChange} />}
+        {view !== 'on' && <ChatPanel mode="off" state={off} onConfirmed={() => {}} />}
+        {view !== 'off' && <ChatPanel mode="on" state={on} onConfirmed={() => {}} />}
       </div>
 
       <form
