@@ -1,5 +1,6 @@
 """화면용 데모 API (spec 8.5): 공격 버튼 목록, 공격 첨부 준비, 공격자 서버 기록."""
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -63,3 +64,22 @@ def preset_attachment(body: AttachRequest, user: CurrentUser, db: DbSession) -> 
 def attacker_log(_user: CurrentUser) -> list[dict[str, Any]]:
     """공격자 서버(127.0.0.1:9999)가 받은 요청 기록. 로그인한 사용자만 읽는다."""
     return read_log()
+
+
+ARTIFACTS = Path(__file__).resolve().parents[1] / "artifacts"
+
+
+def _read_json(name: str) -> dict[str, Any] | None:
+    path = ARTIFACTS / name
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+@router.get("/eval")
+def eval_latest(_user: CurrentUser) -> dict[str, Any]:
+    """최근 탐지기(E-02)·공격 성공률(E-03) 평가 결과. 명령어로 돌린 결과 파일을 읽기만 한다 (U-06)."""
+    return {"detector": _read_json("detector_eval.json"), "attack": _read_json("attack_eval.json")}

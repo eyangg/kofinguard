@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
 import { AttackerLog } from './components/AttackerLog'
 import { ComparePage } from './components/ComparePage'
+import { EvalResults } from './components/EvalResults'
 import { Login } from './components/Login'
 import type { Me } from './types'
 
-type Tab = 'compare' | 'attacker'
+type Tab = 'compare' | 'attacker' | 'eval'
 
 function App() {
   const [me, setMe] = useState<Me | null>(null)
@@ -49,6 +50,9 @@ function App() {
           <button type="button" className={tab === 'attacker' ? 'on' : ''} onClick={() => setTab('attacker')}>
             공격자 기록
           </button>
+          <button type="button" className={tab === 'eval' ? 'on' : ''} onClick={() => setTab('eval')}>
+            평가 결과
+          </button>
         </nav>
         <span className="who">
           {me.name} 님
@@ -59,11 +63,9 @@ function App() {
       </header>
 
       <main>
-        {tab === 'compare' ? (
-          <ComparePage balance={balance} onBalanceChange={refreshBalance} />
-        ) : (
-          <AttackerLog />
-        )}
+        {tab === 'compare' && <ComparePage balance={balance} onBalanceChange={refreshBalance} />}
+        {tab === 'attacker' && <AttackerLog />}
+        {tab === 'eval' && <EvalResults />}
       </main>
     </div>
   )

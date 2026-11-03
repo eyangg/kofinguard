@@ -43,3 +43,25 @@ export type AttackerLogEntry = {
 }
 
 export type Mode = 'off' | 'on'
+
+export type EvalLatest = {
+  detector: {
+    measured_at?: string
+    env: { guard_model?: string; ppl_threshold?: number; num_samples?: number; cpu?: string }
+    metrics: {
+      normal_total: number
+      normal_pass: number
+      normal_blocked: number
+      normal_reask: number
+      false_positive_rate: number
+      avg_sec: number
+      attacks: Record<string, string>
+    }
+  } | null
+  attack: {
+    measured_at?: string
+    n?: number
+    env: { model?: string; guard_model?: string }
+    rows: { scenario: string; mode: Mode; n: number; breaches: number; rate: number }[]
+  } | null
+}

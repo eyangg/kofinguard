@@ -1,9 +1,40 @@
+import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 import { ApiError, api } from '../api'
 import type { ChatResponse, Mode } from '../types'
 import { TracePanel } from './TracePanel'
+
+// ON 보안 검사는 수십 초 걸려서, 기다리는 동안 단계별 진행 메시지를 돌린다.
+const BOAN_STEPS = [
+  '입력 문장 정리 중…',
+  'SmoothPPL 점수 측정 중…',
+  'Llama Guard 안전 검사 중…',
+  '답변에 숨은 코드 확인 중…',
+  '마무리 중…',
+]
+
+function SecurityLoader() {
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setI((v) => (v + 1 < BOAN_STEPS.length ? v + 1 : v)), 2500)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <div className="msg bot loading boan">
+      <span className="ring-spinner" aria-hidden="true">
+        {Array.from({ length: 12 }).map((_, k) => (
+          <i key={k} style={{ transform: `rotate(${k * 30}deg)`, animationDelay: `${(k - 12) / 12}s` }} />
+        ))}
+      </span>
+      <div className="boan-body">
+        <span className="boan-title">보안 검사 중</span>
+        <span className="boan-step">{BOAN_STEPS[i]}</span>
+      </div>
+    </div>
+  )
+}
 
 export type PanelState = {
   loading: boolean
@@ -46,12 +77,15 @@ export function ChatPanel({
             )}
           </div>
         )}
-        {state.loading && (
-          <div className="msg bot loading">
-            <span className="spinner" aria-hidden="true" />
-            {isOff ? '답변 생성 중…' : '보안 검사 중… (SmoothPPL·Llama Guard, 수십 초 걸릴 수 있어요)'}
-          </div>
-        )}
+        {state.loading &&
+          (isOff ? (
+            <div className="msg bot loading">
+              <span className="spinner" aria-hidden="true" />
+              답변 생성 중…
+            </div>
+          ) : (
+            <SecurityLoader />
+          ))}
         {state.error && <div className="msg error">오류: {state.error}</div>}
         {state.result && <BotReply mode={mode} result={state.result} onConfirmed={onConfirmed} />}
         {empty && !children && <div className="placeholder">메시지를 보내면 여기에 답변이 표시됩니다.</div>}

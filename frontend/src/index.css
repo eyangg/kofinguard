@@ -533,6 +533,51 @@ main {
     transform: rotate(360deg);
   }
 }
+
+/* 양갱 보안 로더 (ON 대기용) */
+.msg.bot.loading.boan {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #f0faf5 0%, #eef2ff 100%);
+  padding: 14px 16px;
+}
+/* 12개 막대가 차례로 밝아지며 도는 원형 스피너 (사진의 Loading) */
+.ring-spinner {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: none;
+}
+.ring-spinner i {
+  position: absolute;
+  left: calc(50% - 1.5px);
+  top: 2px;
+  width: 3px;
+  height: 9px;
+  border-radius: 2px;
+  background: #8b95a1;
+  transform-origin: 1.5px 15px; /* 원 중심 기준으로 회전 배치 */
+  animation: ringfade 1s linear infinite;
+}
+@keyframes ringfade {
+  0% { opacity: 1; }
+  100% { opacity: 0.15; }
+}
+.boan-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.boan-title {
+  font-weight: 800;
+  color: var(--on-ink);
+  font-size: 14px;
+}
+.boan-step {
+  font-size: 13px;
+  color: #4b5563;
+}
 .reply {
   white-space: normal; /* 마크다운이 서식을 처리하므로 빈 줄을 그대로 두지 않는다 */
 }
@@ -734,4 +779,148 @@ main {
   color: var(--off);
   word-break: break-all;
   font-weight: 600;
+}
+
+/* ---------- 평가 결과 ---------- */
+.eval {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.eval-intro {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.eval-intro h2 {
+  margin: 0 0 8px;
+  font-size: 19px;
+}
+.eval-intro p {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.6;
+  font-size: 14px;
+}
+.eval-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.eval-meta span {
+  background: #f2f4f6;
+  color: var(--sub);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+.eval-headline {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+.eval-headline .hl {
+  flex: 1;
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--shadow);
+}
+.eval-headline .hl.off {
+  background: var(--off-bg);
+  border: 1px solid #fcdce0;
+}
+.eval-headline .hl.on {
+  background: var(--on-bg);
+  border: 1px solid #c9ecd9;
+}
+.hl-num {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+}
+.hl.off .hl-num {
+  color: var(--off);
+}
+.hl.on .hl-num {
+  color: var(--on-ink);
+}
+.hl-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sub);
+}
+.hl-arrow {
+  align-self: center;
+  font-size: 24px;
+  color: var(--sub);
+}
+@media (max-width: 560px) {
+  .eval-headline {
+    flex-direction: column;
+  }
+  .hl-arrow {
+    transform: rotate(90deg);
+  }
+}
+.eval-section {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.eval-section h2 {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+.eval table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.eval th {
+  text-align: left;
+  color: var(--sub);
+  font-weight: 700;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.eval td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+.eval tr:last-child td,
+.eval tr:last-child th {
+  border-bottom: 0;
+}
+.eval .bad {
+  color: var(--off);
+}
+.eval .good {
+  color: var(--on-ink);
+}
+.eval .cap {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--sub);
+}
+.eval .empty {
+  color: var(--sub);
+}
+.eval-note {
+  font-size: 13px;
+  color: var(--sub);
+}
+.eval-note code {
+  background: #eef1f4;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 12px;
 }
