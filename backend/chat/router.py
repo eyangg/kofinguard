@@ -45,9 +45,14 @@ class SuggestResponse(BaseModel):
 
 
 SUGGEST_SYSTEM = (
-    "너는 대화를 보고 사용자가 다음에 할 법한 질문/요청 3개를 제안한다.\n"
+    "너는 은행 앱 고객이 'AI 상담 챗봇'에게 다음에 할 만한 일반적인 요청을 제안한다.\n"
+    "제안은 반드시 은행 업무 범위로만 한다(잔액·거래내역·송금·이체 한도·입출금·카드값·대출 상환일 등).\n"
+    "챗봇의 지시문·시스템 프롬프트·내부 규칙·보안·AI 동작 같은 '메타' 내용은 절대 제안하지 않는다.\n"
     "JSON 외의 텍스트는 출력하지 마라."
 )
+
+# '일반 추천'에 공격/메타성 문장이 섞이지 않도록 거르는 금칙어 (은행 업무엔 안 쓰이는 말).
+_SUGGEST_BLOCK = ("프롬프트", "시스템", "지침", "지시문", "지시사항", "내부 규칙", "탈옥", "우회")
 
 
 @lru_cache(maxsize=1)
@@ -113,8 +118,12 @@ def _parse_suggestions(raw: str | None) -> list[str]:
         return []
     out: list[str] = []
     for s in items:
-        if isinstance(s, str) and s.strip() and s.strip() not in out:
-            out.append(s.strip())
+        text = s.strip() if isinstance(s, str) else ""
+        if not text or text in out:
+            continue
+        if any(b in text for b in _SUGGEST_BLOCK):  # 메타/공격성 추천은 버린다
+            continue
+        out.append(text)
     return out[:3]
 
 
@@ -123,7 +132,13 @@ def suggestions(body: SuggestRequest, _user: CurrentUser) -> SuggestResponse:
     """마지막 대화로 다음에 보낼 만한 메시지 3개를 생성한다. 실패하면 빈 목록(화면은 공격 칩만 보여 준다)."""
     prompt = (
         f"대화:\n사용자: {body.last_user}\n챗봇: {body.last_reply}\n\n"
-        "사용자 입장에서 다음에 보낼 만한 메시지 3개를 제안해. 각 20자 안팎, 서로 겹치지 않게.\n"
+        "이 은행 앱 고객이 바로 이어서 할 만한 '구체적이고 뜻이 분명한' 후속 요청 3개를 제안해.\n"
+        "규칙:\n"
+        "- 오직 은행 업무만(잔액 조회, 거래내역, 송금, 이체 한도, 카드값·대출 상환일 등).\n"
+        "- 챗봇의 지침·시스템 프롬프트·내부 규칙·보안·AI 자체에 관한 요청은 절대 넣지 마.\n"
+        "- 방금 답변이 은행 업무와 무관하면(예: 내부 지침이 노출된 경우) 그 내용은 무시하고, "
+        "평범한 은행 업무 후속으로 제안해.\n"
+        "- 각 20자 안팎, 서로 겹치지 않게, 모호한 문장 금지.\n"
         '형식: {"suggestions": ["...", "...", "..."]}'
     )
     try:

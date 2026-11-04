@@ -1,6 +1,6 @@
+import { marked } from 'marked'
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 import { ApiError, api } from '../api'
 import type { ChatResponse, Mode } from '../types'
@@ -36,7 +36,8 @@ function SecurityLoader() {
       <div className="boan-body">
         <span className="boan-title">보안 검사 중 · {sec}초</span>
         <span className="boan-step">{BOAN_STEPS[i]}</span>
-        <span className="boan-note">여러 탐지기를 동시에 돌리는 중이에요. 최초 실행은 모델을 메모리에 올리느라 더 걸릴 수 있어요.</span>
+        <span className="boan-note">여러 탐지기를 동시에 돌리는 중이에요.</span>
+        <span className="boan-note">최초 실행은 모델을 메모리에 올리느라 더 걸릴 수 있어요.</span>
       </div>
     </div>
   )
@@ -48,6 +49,7 @@ export type PanelState = {
   attachment?: string // 첨부 파일명 (S2 청구서 등)
   result?: ChatResponse
   error?: string
+  elapsedMs?: number // 전송~응답까지 걸린 시간 (방어 판단 근거에 표시)
 }
 
 export function ChatPanel({
@@ -93,7 +95,9 @@ export function ChatPanel({
             <SecurityLoader />
           ))}
         {state.error && <div className="msg error">오류: {state.error}</div>}
-        {state.result && <BotReply mode={mode} result={state.result} onConfirmed={onConfirmed} />}
+        {state.result && (
+          <BotReply mode={mode} result={state.result} onConfirmed={onConfirmed} elapsedMs={state.elapsedMs} />
+        )}
         {empty && !children && <div className="placeholder">메시지를 보내면 여기에 답변이 표시됩니다.</div>}
         {children}
       </div>
@@ -124,13 +128,27 @@ function splitReply(reply: string): string[] {
   return segments.length > 0 ? segments : [reply]
 }
 
+// 방어 OFF용 렌더. 모델 답변을 '실제 HTML'로 그려 S2 XSS를 재현한다.
+// marked는 onerror 같은 비정형 속성이 든 태그를 escape(글자화)해 버려 실행이 안 되므로,
+// 원본 HTML 태그(<img onerror=…> 등)만 잠시 빼뒀다가 marked 처리 후 되돌려 넣는다.
+// 그러면 표 같은 마크다운은 그대로 렌더되고, 숨은 태그는 innerHTML에서 브라우저가 실행한다.
+function offHtml(reply: string): string {
+  const tags: string[] = []
+  const held = reply.replace(/<[^>]+>/g, (m) => `@@RAW${tags.push(m) - 1}@@`)
+  const rendered = marked.parse(held, { async: false }) as string
+  return rendered.replace(/@@RAW(\d+)@@/g, (_m, i) => tags[Number(i)] ?? '')
+}
+
 function Markdown({ mode, text }: { mode: Mode; text: string }) {
-  // OFF는 원본 HTML까지 렌더(S2 공격 재현), ON은 마크다운만(코드는 글자로만).
+  if (mode === 'off') {
+    // 로그인 뒤에서만, 로컬/배포 CSP로 외부 유출이 격리된 상태에서만 쓴다.
+    // 고객 화면엔 아무 티가 안 나고(공격의 본질), 실제 유출은 별도 '공격자 콘솔'에서 확인한다.
+    return <div className="reply" dangerouslySetInnerHTML={{ __html: offHtml(text) }} />
+  }
+  // 방어 ON: 마크다운만 렌더하고 원본 HTML은 실행하지 않는다(코드는 글자로만 보인다).
   return (
     <div className="reply">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={mode === 'off' ? [rehypeRaw] : []}>
-        {text}
-      </ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
     </div>
   )
 }
@@ -139,10 +157,12 @@ function BotReply({
   mode,
   result,
   onConfirmed,
+  elapsedMs,
 }: {
   mode: Mode
   result: ChatResponse
   onConfirmed: () => void
+  elapsedMs?: number
 }) {
   const segments = splitReply(result.reply)
   return (
@@ -155,7 +175,7 @@ function BotReply({
       {(result.pending_transfer || result.trace.length > 0) && (
         <div className="msg bot">
           {result.pending_transfer && <PendingCard pending={result.pending_transfer} onConfirmed={onConfirmed} />}
-          <TracePanel trace={result.trace} />
+          <TracePanel trace={result.trace} elapsedMs={elapsedMs} />
         </div>
       )}
     </>

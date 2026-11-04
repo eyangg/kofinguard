@@ -3,7 +3,7 @@ import { ApiError, api } from '../api'
 import type { Me } from '../types'
 
 export function Login({ onLogin }: { onLogin: (me: Me) => void }) {
-  const [loginId, setLoginId] = useState('minsu')
+  const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -44,7 +44,6 @@ export function Login({ onLogin }: { onLogin: (me: Me) => void }) {
         <button type="submit" disabled={busy}>
           {busy ? '로그인 중...' : '로그인'}
         </button>
-        <p className="hint">시연 계정: minsu / seoyeon · 비밀번호 demo1234!</p>
       </form>
     </div>
   )

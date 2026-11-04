@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
-import { AttackerLog } from './components/AttackerLog'
 import { ComparePage } from './components/ComparePage'
 import { EvalResults } from './components/EvalResults'
 import { Login } from './components/Login'
 import type { Me } from './types'
 
-type Tab = 'compare' | 'attacker' | 'eval'
+type Tab = 'compare' | 'eval'
 
 function App() {
   const [me, setMe] = useState<Me | null>(null)
@@ -37,9 +36,6 @@ function App() {
           <button type="button" className={tab === 'compare' ? 'on' : ''} onClick={() => setTab('compare')}>
             비교 채팅
           </button>
-          <button type="button" className={tab === 'attacker' ? 'on' : ''} onClick={() => setTab('attacker')}>
-            공격자 기록
-          </button>
           <button type="button" className={tab === 'eval' ? 'on' : ''} onClick={() => setTab('eval')}>
             평가 결과
           </button>
@@ -54,7 +50,6 @@ function App() {
 
       <main>
         {tab === 'compare' && <ComparePage />}
-        {tab === 'attacker' && <AttackerLog />}
         {tab === 'eval' && <EvalResults />}
       </main>
     </div>

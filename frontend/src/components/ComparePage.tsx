@@ -55,14 +55,16 @@ export function ComparePage() {
     setOn({ loading: true, user: message, attachment })
 
     // OFF와 ON에 같은 입력을 보낸다. 한쪽이 실패해도 다른 쪽은 보여 준다.
+    // 각 요청의 전송~응답 시간을 재서 '방어 판단 근거'에 표시한다(특히 ON이 얼마나 걸렸는지).
+    const started = performance.now()
     const [offRes, onRes] = await Promise.all([
       api
         .chat('off', message, attachmentId)
-        .then((result) => (setOff({ loading: false, user: message, attachment, result }), result))
+        .then((result) => (setOff({ loading: false, user: message, attachment, result, elapsedMs: performance.now() - started }), result))
         .catch((err) => (setOff({ loading: false, user: message, attachment, error: msg(err) }), null)),
       api
         .chat('on', message, attachmentId)
-        .then((result) => (setOn({ loading: false, user: message, attachment, result }), result))
+        .then((result) => (setOn({ loading: false, user: message, attachment, result, elapsedMs: performance.now() - started }), result))
         .catch((err) => (setOn({ loading: false, user: message, attachment, error: msg(err) }), null)),
     ])
     setUploaded(null) // 보낸 뒤 올린 파일 첨부는 비운다
@@ -197,7 +199,7 @@ export function ComparePage() {
             }
           }}
           rows={2}
-          placeholder="메시지를 입력해 양쪽에 보내기 (예: 내 잔액 알려줘). Enter 전송, Shift+Enter 줄바꿈"
+          placeholder="메시지를 입력해 양쪽에 보내기 (예: 내 잔액 알려줘)"
           disabled={sending}
         />
 

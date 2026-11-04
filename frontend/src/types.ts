@@ -35,13 +35,6 @@ export type Preset = {
   pinned: boolean // true=고정 공격 버튼(S1·S2), false=추천에 섞는 추가 공격
 }
 
-export type AttackerLogEntry = {
-  time: string
-  method: string
-  path: string
-  query: Record<string, unknown>
-}
-
 export type Mode = 'off' | 'on'
 
 export type EvalLatest = {

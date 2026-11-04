@@ -10,6 +10,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
+from attacker.console import console_html
 from attacker.server import LOG_FILE, read_log
 from attachments import save_attachment
 from auth import CurrentUser, DbSession
@@ -70,6 +71,16 @@ def attacker_log(_user: CurrentUser) -> list[dict[str, Any]]:
     로컬은 독립 공격자 서버(127.0.0.1:9999), 배포는 아래 /x·/collect 엔드포인트가 같은 파일에 남긴다.
     """
     return read_log()
+
+
+@router.get("/console")
+def attacker_console() -> Response:
+    """배포용 '탈취 데이터' 콘솔 페이지. 고객 앱 밖의 별도 URL로 연다.
+
+    데이터는 /api/demo/attacker-log(로그인 필요)에서 읽으므로, 같은 브라우저에서
+    로그인한 상태로 열어야 보인다. 로컬은 공격자 서버(127.0.0.1:9999/)가 같은 콘솔을 준다.
+    """
+    return Response(console_html("/api/demo/attacker-log"), media_type="text/html; charset=utf-8")
 
 
 # ---- S2 유출 수집 (배포용): 독립 공격자 서버 대신 백엔드가 /x·/collect를 제공한다 ----

@@ -1,12 +1,4 @@
-import type {
-  Account,
-  AttackerLogEntry,
-  ChatResponse,
-  EvalLatest,
-  Me,
-  Mode,
-  Preset,
-} from './types'
+import type { Account, ChatResponse, EvalLatest, Me, Mode, Preset } from './types'
 
 class ApiError extends Error {
   status: number
@@ -84,7 +76,6 @@ export const api = {
     }),
   confirmTransfer: (id: number) =>
     req<{ balance_after: number }>(`/api/transfers/${id}/confirm`, { method: 'POST' }),
-  attackerLog: () => req<AttackerLogEntry[]>('/api/demo/attacker-log'),
   evalLatest: () => req<EvalLatest>('/api/demo/eval'),
 }
 

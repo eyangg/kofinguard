@@ -27,11 +27,13 @@ function sourceLabel(d: Record<string, unknown>): string {
   return s === 'document' ? '첨부 문서' : s === 'message' ? '사용자 메시지' : ''
 }
 
-function describe(e: TraceEvent): Row {
+// showSource=true일 때만 [사용자 메시지]/[첨부 문서] 태그를 붙인다.
+// (메시지만 검사하는 경우엔 전부 메시지라 태그가 군더더기여서 숨긴다. S2처럼 문서도 함께 검사할 때만 구분용으로 표시.)
+function describe(e: TraceEvent, showSource: boolean): Row {
   const d = e.detail
   const name = LAYER_NAME[e.layer] ?? e.layer
   const src = sourceLabel(d)
-  const tag = src ? `[${src}] ` : ''
+  const tag = showSource && src ? `[${src}] ` : ''
 
   switch (e.layer) {
     case 'D-01': {
@@ -109,33 +111,32 @@ function gatherInfo(trace: TraceEvent[]): Record<string, SrcInfo> {
   return info
 }
 
-function describeFinal(e: TraceEvent, info: Record<string, SrcInfo>): Shown {
+function describeFinal(e: TraceEvent, info: Record<string, SrcInfo>, showSource: boolean): Shown {
   const src = sourceLabel(e.detail)
-  const tag = src ? `[${src}] ` : ''
+  const tag = showSource && src ? `[${src}] ` : ''
   const c = info[str(e.detail['source']) || 'message'] ?? {}
+  const mean = c.mean != null ? Math.round(c.mean).toLocaleString() : '—'
+  // D-01은 판정에 쓰지 않고 전처리(표준형 정리)만 한다. 변형이 있었을 때만 덧붙인다.
+  const pre = c.changed ? ' 입력은 D-01에서 표준형으로 정리한 뒤 검사했어요.' : ''
 
-  // D-01·D-02·D-03이 각각 무엇을 근거로 했는지 짧게
-  const parts: string[] = []
-  if (c.changed) parts.push('D-01 변형 정리함')
-  if (c.mean != null) parts.push(`D-02 점수 ${Math.round(c.mean).toLocaleString()}(${c.mean <= 5000 ? '정상' : '높음'})`)
-  if (c.err) parts.push('D-03 판정 불가')
-  else if (c.unsafe) parts.push("D-03 안전필터 '위험'")
-  else if (c.safe) parts.push("D-03 안전필터 '안전'")
-  const basis = parts.join(' · ')
-
-  const decision: Record<string, { word: string; tone: Tone }> = {
-    pass: { word: '통과 (챗봇에게 전달)', tone: 'ok' },
-    block: { word: '차단 (챗봇을 부르지 않음)', tone: 'block' },
-    reask: { word: '다시 묻기 (재입력 요청)', tone: 'warn' },
-    unavailable: { word: '처리 안 함 (검사 불가)', tone: 'block' },
+  // 결정 규칙(router.py): D-03 '위험'이면 점수와 무관하게 차단 → '안전'이면 D-02 점수로 통과/다시묻기.
+  // D-02 점수는 '문장이 자연스러운지'만 재고 위험성은 못 가리므로, 위험 판정은 D-03가 맡는다.
+  const tone: Record<string, Tone> = { pass: 'ok', block: 'block', reask: 'warn', unavailable: 'block' }
+  let text: string
+  switch (e.action) {
+    case 'block':
+      text = `AI 안전필터(D-03)가 '위험'으로 판정해서 바로 차단했어요. SmoothPPL 점수(D-02)는 문장이 자연스러운지만 재고 위험한지는 못 가리기 때문에, 안전필터가 '위험'이라고 하면 점수와 상관없이 막아요.${pre}`
+      break
+    case 'reask':
+      text = `AI 안전필터(D-03)는 '안전'인데 SmoothPPL 점수(D-02) ${mean}가 기준(5,000)을 넘었어요. 점수가 높다는 건 '위험'이 아니라 '알아보기 어려운 문장'이라는 뜻이라, 차단하지 않고 '다시 묻기'로 재입력을 요청했어요.${pre}`
+      break
+    case 'pass':
+      text = `AI 안전필터(D-03)가 '안전'이고 SmoothPPL 점수(D-02) ${mean}도 기준(5,000) 이하예요. 둘 다 정상이라 통과시켜 챗봇에게 전달했어요.${pre}`
+      break
+    default: // unavailable
+      text = `검사를 끝까지 못 해서(${c.err || '모델 오류'}) 안전을 확인하지 못했어요. 확인이 안 되면 통과시키지 않고 처리를 멈춰요.`
   }
-  const dec = decision[e.action] ?? { word: e.action, tone: 'ok' as Tone }
-  return {
-    layer: 'D-04',
-    name: LAYER_NAME['D-04'],
-    tone: dec.tone,
-    text: `${tag}${basis ? basis + ' → ' : ''}${dec.word}`,
-  }
+  return { layer: 'D-04', name: LAYER_NAME['D-04'], tone: tone[e.action] ?? 'ok', text: `${tag}${text}` }
 }
 
 function finalLine(rows: Shown[]): string {
@@ -146,17 +147,24 @@ function finalLine(rows: Shown[]): string {
 }
 
 // 방어 장치가 단계별로 어떻게 판단했는지 쉬운 말로 보여 준다 (U-03). 방어 ON 답변에만 나온다.
-export function TracePanel({ trace }: { trace: TraceEvent[] }) {
+export function TracePanel({ trace, elapsedMs }: { trace: TraceEvent[]; elapsedMs?: number }) {
   if (trace.length === 0) return null
   const info = gatherInfo(trace)
+  // 첨부 문서도 함께 검사했을 때만 [사용자 메시지]/[첨부 문서] 구분 태그를 보인다.
+  const showSource = trace.some((e) => str(e.detail['source']) === 'document')
   const rows = trace
-    .map((e) => (e.layer === 'D-04' ? describeFinal(e, info) : describe(e)))
+    .map((e) => (e.layer === 'D-04' ? describeFinal(e, info, showSource) : describe(e, showSource)))
     .filter((r): r is Shown => r !== null)
   if (rows.length === 0) return null
+  const took = elapsedMs != null ? `${(elapsedMs / 1000).toFixed(1)}초` : null
   return (
     <details className="trace" open>
       <summary>
-        방어가 어떻게 판단했나 <span className="trace-final">· {finalLine(rows)}</span>
+        방어 판단 근거{' '}
+        <span className="trace-final">
+          · {finalLine(rows)}
+          {took ? ` · ${took} 걸림` : ''}
+        </span>
       </summary>
       <ol>
         {rows.map((r, i) => (

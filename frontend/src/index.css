@@ -250,9 +250,7 @@ main {
 }
 .panels.view-off,
 .panels.view-on {
-  grid-template-columns: 1fr;
-  max-width: 640px;
-  margin: 0 auto;
+  grid-template-columns: 1fr; /* 한 화면만: 입력칸과 같은 전체 폭으로 맞춘다 */
 }
 /* 아주 좁은 화면(휴대폰 등)에서만 위아래로 쌓는다. 그 외에는 좌우 유지 */
 @media (max-width: 560px) {
@@ -662,6 +660,12 @@ main {
   border-top: 1px dashed var(--line);
   padding-top: 10px;
 }
+/* 근거 패널이 말풍선의 첫(유일) 요소면, 위 구분선·여백 때문에 한 줄 내려가 보이는 걸 없앤다 */
+.msg.bot > .trace:first-child {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
+}
 .trace summary {
   cursor: pointer;
   color: var(--primary-ink);
@@ -729,61 +733,6 @@ main {
 .t-text {
   color: #4b5563;
   line-height: 1.5;
-}
-
-/* ---------- 공격자 기록 ---------- */
-.attacker {
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 20px;
-  box-shadow: var(--shadow);
-}
-.attacker-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.attacker-head h2 {
-  margin: 0;
-  font-size: 18px;
-}
-.attacker-head button {
-  margin-left: auto;
-  border: 1px solid var(--line);
-  background: #fff;
-  padding: 8px 14px;
-  border-radius: 10px;
-  font-weight: 600;
-  color: var(--sub);
-}
-.attacker .empty {
-  color: var(--sub);
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 28px;
-  text-align: center;
-}
-.attacker table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-.attacker th {
-  text-align: left;
-  color: var(--sub);
-  font-size: 12px;
-  padding: 10px 12px;
-  border-bottom: 2px solid var(--line);
-}
-.attacker td {
-  padding: 11px 12px;
-  border-bottom: 1px solid var(--line);
-}
-.attacker .leak {
-  color: var(--off);
-  word-break: break-all;
-  font-weight: 600;
 }
 
 /* ---------- 평가 결과 ---------- */
