@@ -12,6 +12,7 @@
 """
 
 import hashlib
+import os
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,8 +24,24 @@ from detector.normalize import is_jamo_heavy, normalize_korean
 
 NOISE_CHARS = [" ", "!", "@", "#", ".", "?"]
 PERTURBATION_RATE = 0.1
-NUM_SAMPLES = 15
+NUM_SAMPLES = 15  # 졸프 값. 배포에서만 KFG_PPL_NUM_SAMPLES로 줄여 CPU 추론 횟수를 낮춘다.
 N_CTX = 2048
+
+
+def num_samples_from_env() -> int:
+    """SmoothPPL 교란 샘플 수. 1회 검사당 모델 추론 횟수(=속도)를 좌우한다.
+
+    기본은 NUM_SAMPLES(15, 졸프 값)이고, 배포에서 KFG_PPL_NUM_SAMPLES로만 줄인다.
+    PPL은 라우팅 전용(단독 차단 안 함)이라 샘플을 줄여도 차단 로직엔 영향이 작지만,
+    값을 바꾸면 calibrate로 임계값(KFG_PPL_THRESHOLD)을 다시 확인한다.
+    """
+    raw = os.environ.get("KFG_PPL_NUM_SAMPLES", "").strip()
+    if not raw:
+        return NUM_SAMPLES
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return NUM_SAMPLES
 
 
 @dataclass(frozen=True)

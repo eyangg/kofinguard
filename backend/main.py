@@ -24,6 +24,22 @@ from demo import router as demo_router
 logger = logging.getLogger("uvicorn.error")
 
 
+def _preload_detector() -> None:
+    """탐지기 모델(Qwen GGUF + Llama Guard)을 시작 때 미리 메모리에 올려 둔다.
+
+    배포에서 KFG_PRELOAD_DETECTOR=1일 때만 돈다. 첫 ON 요청이 콜드 로드를 안 겪게 해
+    초기 지연·502를 없앤다. 실패해도(모델/설정 없음) 서버는 그대로 뜨고, 요청 시 다시 시도한다.
+    """
+    try:
+        from chat.router import _detector  # lru_cache된 바로 그 인스턴스를 데운다
+
+        logger.info("탐지기 모델 미리 로드 중… (Qwen GGUF + Llama Guard)")
+        _detector().check("워밍업")  # 모델 적재 + 1회 추론
+        logger.info("탐지기 모델 준비 완료")
+    except Exception as e:  # 미리 로드는 선택적 최적화라 실패해도 서버는 계속 뜬다
+        logger.warning("탐지기 미리 로드 실패(요청 시 다시 시도): %s", e)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # DATABASE_URL이 없거나 연결할 수 없으면 SQLite로 넘어가지 않고 시작을 멈춘다.
@@ -37,6 +53,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         logger.error("%s", e)
         raise
     logger.info("DB 연결: %s", db.describe_url(str(engine.url)))
+    if os.environ.get("KFG_PRELOAD_DETECTOR", "").strip().lower() in ("1", "true", "yes"):
+        _preload_detector()
     yield
 
 

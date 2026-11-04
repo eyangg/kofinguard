@@ -21,7 +21,7 @@ from typing import Any, Literal
 
 from detector.guard import Guard, GuardUnavailableError, OllamaGuard
 from detector.normalize import normalize
-from detector.smoothppl import NUM_SAMPLES, LlamaCppPPL, PPLScorer, calculate_smooth_stats
+from detector.smoothppl import NUM_SAMPLES, LlamaCppPPL, PPLScorer, calculate_smooth_stats, num_samples_from_env
 
 Action = Literal["pass", "block", "reask", "unavailable"]
 
@@ -129,4 +129,4 @@ def build_detector() -> Detector:
         scorer = LlamaCppPPL(qwen_path_from_env())
     except FileNotFoundError as e:
         raise DetectorConfigError(str(e)) from None
-    return Detector(scorer, OllamaGuard(), threshold)
+    return Detector(scorer, OllamaGuard(), threshold, num_samples_from_env())

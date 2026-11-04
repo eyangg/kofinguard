@@ -20,7 +20,7 @@ import db
 from attachments import extract_text
 from detector.guard import OllamaGuard
 from detector.normalize import normalize
-from detector.smoothppl import NUM_SAMPLES, LlamaCppPPL, calculate_smooth_stats
+from detector.smoothppl import LlamaCppPPL, calculate_smooth_stats, num_samples_from_env
 from detector.router import qwen_path_from_env
 from scenarios.attacks import S1_MESSAGE, S2_INVOICE_FILE
 
@@ -33,7 +33,7 @@ def measure(texts: dict[str, str], scorer: LlamaCppPPL, guard: OllamaGuard) -> l
     rows = []
     for label, text in texts.items():
         t = time.perf_counter()
-        stats = calculate_smooth_stats(text, scorer)
+        stats = calculate_smooth_stats(text, scorer, num_samples_from_env())
         t_ppl = time.perf_counter() - t
         t = time.perf_counter()
         g = guard.judge(normalize(text))
@@ -114,7 +114,7 @@ def main() -> None:
         "cpu": platform.processor(),
         "qwen": qwen_path_from_env().name,
         "guard_model": guard.model,
-        "num_samples": NUM_SAMPLES,
+        "num_samples": num_samples_from_env(),
         "avg_sec_smoothppl": round(float(np.mean([r["sec_smoothppl"] for r in normal + attacks])), 2),
         "avg_sec_guard": round(float(np.mean([r["sec_guard"] for r in normal + attacks])), 2),
     }
