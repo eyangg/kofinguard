@@ -1,5 +1,5 @@
 import { marked } from 'marked'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ApiError, api } from '../api'
@@ -54,17 +54,20 @@ export type PanelState = {
 
 export function ChatPanel({
   mode,
-  state,
+  turns,
   onConfirmed,
-  children,
 }: {
   mode: Mode
-  state: PanelState
+  turns: PanelState[]
   onConfirmed: () => void
-  children?: React.ReactNode
 }) {
   const isOff = mode === 'off'
-  const empty = !state.user && !state.loading && !state.result && !state.error
+  const scrollRef = useRef<HTMLDivElement>(null)
+  // 새 턴이 쌓이거나 답변이 채워지면 항상 맨 아래(최신)로 스크롤한다.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [turns])
   return (
     <section className={`panel ${mode}`}>
       <header>
@@ -72,36 +75,49 @@ export function ChatPanel({
         <span className="desc">{isOff ? '보안 장치 없음 (취약)' : '다층 방어 적용'}</span>
       </header>
 
-      <div className="messages">
-        {state.user && (
-          <div className="user-block">
-            <div className="msg user">{state.user}</div>
-            {state.attachment && (
-              <div className="attach-chip">
-                <span className="attach-icon" aria-hidden="true">📎</span>
-                {state.attachment}
-                <span className="attach-note">첨부됨</span>
-              </div>
-            )}
-          </div>
+      <div className="messages" ref={scrollRef}>
+        {turns.map((state, i) => (
+          <Turn key={i} mode={mode} state={state} onConfirmed={onConfirmed} />
+        ))}
+        {turns.length === 0 && (
+          <div className="placeholder">메시지를 보내면 여기에 답변이 표시됩니다.</div>
         )}
-        {state.loading &&
-          (isOff ? (
-            <div className="msg bot loading">
-              <span className="spinner" aria-hidden="true" />
-              답변 생성 중…
-            </div>
-          ) : (
-            <SecurityLoader />
-          ))}
-        {state.error && <div className="msg error">오류: {state.error}</div>}
-        {state.result && (
-          <BotReply mode={mode} result={state.result} onConfirmed={onConfirmed} elapsedMs={state.elapsedMs} />
-        )}
-        {empty && !children && <div className="placeholder">메시지를 보내면 여기에 답변이 표시됩니다.</div>}
-        {children}
       </div>
     </section>
+  )
+}
+
+// 한 번의 주고받기(사용자 메시지 + 답변/로딩/오류)를 그린다. 여러 턴이 위로 쌓인다.
+function Turn({ mode, state, onConfirmed }: { mode: Mode; state: PanelState; onConfirmed: () => void }) {
+  const isOff = mode === 'off'
+  return (
+    <>
+      {state.user && (
+        <div className="user-block">
+          <div className="msg user">{state.user}</div>
+          {state.attachment && (
+            <div className="attach-chip">
+              <span className="attach-icon" aria-hidden="true">📎</span>
+              {state.attachment}
+              <span className="attach-note">첨부됨</span>
+            </div>
+          )}
+        </div>
+      )}
+      {state.loading &&
+        (isOff ? (
+          <div className="msg bot loading">
+            <span className="spinner" aria-hidden="true" />
+            답변 생성 중…
+          </div>
+        ) : (
+          <SecurityLoader />
+        ))}
+      {state.error && <div className="msg error">오류: {state.error}</div>}
+      {state.result && (
+        <BotReply mode={mode} result={state.result} onConfirmed={onConfirmed} elapsedMs={state.elapsedMs} />
+      )}
+    </>
   )
 }
 

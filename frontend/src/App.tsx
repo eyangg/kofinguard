@@ -37,7 +37,7 @@ function App() {
             비교 채팅
           </button>
           <button type="button" className={tab === 'eval' ? 'on' : ''} onClick={() => setTab('eval')}>
-            평가 결과
+            방어 성능
           </button>
         </nav>
         <span className="who">

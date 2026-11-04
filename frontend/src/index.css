@@ -126,6 +126,15 @@ button:disabled {
 }
 
 /* ---------- 상단바 ---------- */
+/* 화면 세로를 꽉 채운다: 상단바 + 본문(남는 높이 전부).
+   높이를 100vh로 '고정'해야 안쪽(.messages·방어성능 탭)이 늘어나지 않고 스크롤된다. */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
 .topbar {
   position: sticky;
   top: 0;
@@ -193,12 +202,26 @@ button:disabled {
 }
 
 main {
-  padding: 22px 16px 60px;
-  max-width: 1120px;
+  flex: 1; /* 남는 세로 높이를 전부 차지 */
+  width: 100%;
+  padding: 20px 24px 24px;
+  max-width: 1600px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* 비교 화면은 안쪽(.messages)에서 스크롤되고, 방어 성능 탭처럼 긴 내용은 여기서 스크롤된다. */
+  overflow-y: auto;
 }
 
 /* ---------- 비교 화면 ---------- */
+/* 비교 화면은 본문 높이를 채운다: 도구줄(위) + 패널(남는 높이) + 입력칸(아래). */
+.compare {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -210,27 +233,88 @@ main {
   margin-bottom: 14px;
   box-shadow: var(--shadow);
 }
-.viewtabs {
+/* 방어 ON / OFF가 무엇인지 설명 (옛 '~만 보기' 토글 자리) */
+.mode-legend {
   display: flex;
-  gap: 4px;
-  background: #f2f4f6;
-  padding: 4px;
-  border-radius: 12px;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  width: 100%;
 }
-.viewtabs button {
-  border: 0;
-  background: transparent;
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 320px;
+}
+.legend-desc {
+  font-size: 13px;
+  font-weight: 500;
   color: var(--sub);
-  padding: 8px 16px;
-  border-radius: 9px;
-  font-weight: 700;
-  font-size: 14px;
-  transition: all 0.15s;
+  line-height: 1.5;
 }
-.viewtabs button.on {
-  background: #fff;
+/* 방어 ON 상세: 도구줄 카드 밖, 패널 위의 자기 카드. 평소엔 접혀 있고 누르면 D-01~D-09를 펼친다
+   (JS 없이 <details>). flex-shrink:0 이라 펼쳐도 패널 높이만 줄고 전체 레이아웃은 안 깨진다. */
+.defense-detail {
+  flex-shrink: 0;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.defense-detail summary {
+  cursor: pointer;
+  width: fit-content;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.defense-detail summary::-webkit-details-marker {
+  display: none;
+}
+.defense-detail summary::after {
+  content: '▾';
+  font-size: 11px;
+  transition: transform 0.15s;
+}
+.defense-detail[open] summary::after {
+  transform: rotate(180deg);
+}
+.defense-detail ul {
+  margin: 11px 0 2px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.defense-detail li {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #4b5563;
+}
+.defense-detail li b {
   color: var(--ink);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-weight: 700;
+}
+.defense-detail li .dsub {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--sub);
+}
+.dcode {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sub);
+  background: #f2f4f6;
+  padding: 1px 8px;
+  border-radius: 999px;
+  margin: 0 6px 0 0;
+  white-space: nowrap;
 }
 .balance {
   margin-left: auto;
@@ -244,13 +328,12 @@ main {
 .panels {
   display: grid;
   gap: 16px;
+  flex: 1; /* 패널 영역이 입력칸 위 남는 높이를 채운다 */
+  min-height: 0;
+  grid-auto-rows: minmax(0, 1fr);
 }
 .panels.view-both {
   grid-template-columns: 1fr 1fr;
-}
-.panels.view-off,
-.panels.view-on {
-  grid-template-columns: 1fr; /* 한 화면만: 입력칸과 같은 전체 폭으로 맞춘다 */
 }
 /* 아주 좁은 화면(휴대폰 등)에서만 위아래로 쌓는다. 그 외에는 좌우 유지 */
 @media (max-width: 560px) {
@@ -262,6 +345,7 @@ main {
 /* 채팅 입력 박스: 칩 + 입력 + 하단(첨부·보내기)을 한 박스에 */
 .composer-box {
   margin-top: 16px;
+  flex-shrink: 0; /* 패널이 높이를 가져가도 입력칸은 줄지 않고 바닥에 고정 */
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -415,12 +499,15 @@ main {
   overflow: hidden;
   min-height: 180px;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
 }
 .panel header {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 15px 18px;
+  flex-shrink: 0;
 }
 .panel.off header {
   background: var(--off-bg);
@@ -453,6 +540,10 @@ main {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* 패널의 남는 높이를 채우고, 기록이 넘치면 이 안에서만 스크롤한다(두 패널 높이도 맞춰짐). */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 .msg {
   padding: 12px 15px;
@@ -724,6 +815,8 @@ main {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0; /* 긴 설명이 넘치지 않고 줄바꿈되도록 (flex 자식 min-width 기본 auto 해제) */
 }
 .t-name {
   font-weight: 700;
@@ -733,6 +826,11 @@ main {
 .t-text {
   color: #4b5563;
   line-height: 1.5;
+  /* 한국어가 음절 중간에서 끊기지 않고 띄어쓰기 단위로 줄바꿈되게 (상속된 break-word 덮어씀).
+     아주 긴 토큰만 overflow-wrap으로 비상 분할. */
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 /* ---------- 평가 결과 ---------- */
@@ -843,7 +941,7 @@ main {
   font-weight: 700;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
-  white-space: nowrap;
+  white-space: normal; /* 헤더·항목 이름이 길어지면 줄바꿈 (가독성) */
 }
 .eval td {
   padding: 10px 12px;
@@ -864,6 +962,28 @@ main {
   margin: 10px 0 0;
   font-size: 12px;
   color: var(--sub);
+  line-height: 1.6;
+}
+/* 섹션 제목 바로 아래, 표 위의 한 줄 설명 */
+.eval .sec-lead {
+  margin: -4px 0 14px;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.6;
+}
+/* 공격 이름 + 한 줄 설명을 한 칸에 위아래로 */
+.scn-name {
+  display: block;
+  font-weight: 700;
+  color: var(--ink);
+}
+.scn-desc {
+  display: block;
+  margin-top: 3px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--sub);
+  line-height: 1.5;
 }
 .eval .empty {
   color: var(--sub);

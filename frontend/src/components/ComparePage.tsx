@@ -3,17 +3,19 @@ import { ApiError, api } from '../api'
 import type { Preset } from '../types'
 import { ChatPanel, type PanelState } from './ChatPanel'
 
-const EMPTY: PanelState = { loading: false }
+type SetTurns = React.Dispatch<React.SetStateAction<PanelState[]>>
 
-type View = 'both' | 'off' | 'on'
+// 진행 중(맨 끝) 턴에만 결과를 채운다. sending 가드로 한 번에 한 턴만 떠 있다.
+function patchLast(setTurns: SetTurns, patch: Partial<PanelState>) {
+  setTurns((prev) => prev.map((t, i) => (i === prev.length - 1 ? { ...t, ...patch } : t)))
+}
 
 export function ComparePage() {
   const [presets, setPresets] = useState<Preset[]>([])
   const [input, setInput] = useState('')
-  const [off, setOff] = useState<PanelState>(EMPTY)
-  const [on, setOn] = useState<PanelState>(EMPTY)
+  const [off, setOff] = useState<PanelState[]>([])
+  const [on, setOn] = useState<PanelState[]>([])
   const [sending, setSending] = useState(false)
-  const [view, setView] = useState<View>('both')
   // 칩으로 채운 공격 문장. 입력을 그대로 보내면 그 프리셋의 첨부(S2 청구서)도 같이 보낸다.
   const [armed, setArmed] = useState<{ id: string; message: string } | null>(null)
   // 마지막 답변 뒤 LLM이 제안한 다음 질문(정상 후속). 공격 칩은 항상 따로 고정으로 보인다.
@@ -51,8 +53,10 @@ export function ComparePage() {
       /* 첨부 준비 실패해도 메시지는 보낸다 */
     }
 
-    setOff({ loading: true, user: message, attachment })
-    setOn({ loading: true, user: message, attachment })
+    // 이전 턴은 그대로 두고 새 턴을 맨 뒤에 쌓는다(스크롤 기록).
+    const turn: PanelState = { loading: true, user: message, attachment }
+    setOff((prev) => [...prev, turn])
+    setOn((prev) => [...prev, turn])
 
     // OFF와 ON에 같은 입력을 보낸다. 한쪽이 실패해도 다른 쪽은 보여 준다.
     // 각 요청의 전송~응답 시간을 재서 '방어 판단 근거'에 표시한다(특히 ON이 얼마나 걸렸는지).
@@ -60,12 +64,12 @@ export function ComparePage() {
     const [offRes, onRes] = await Promise.all([
       api
         .chat('off', message, attachmentId)
-        .then((result) => (setOff({ loading: false, user: message, attachment, result, elapsedMs: performance.now() - started }), result))
-        .catch((err) => (setOff({ loading: false, user: message, attachment, error: msg(err) }), null)),
+        .then((result) => (patchLast(setOff, { loading: false, result, elapsedMs: performance.now() - started }), result))
+        .catch((err) => (patchLast(setOff, { loading: false, error: msg(err) }), null)),
       api
         .chat('on', message, attachmentId)
-        .then((result) => (setOn({ loading: false, user: message, attachment, result, elapsedMs: performance.now() - started }), result))
-        .catch((err) => (setOn({ loading: false, user: message, attachment, error: msg(err) }), null)),
+        .then((result) => (patchLast(setOn, { loading: false, result, elapsedMs: performance.now() - started }), result))
+        .catch((err) => (patchLast(setOn, { loading: false, error: msg(err) }), null)),
     ])
     setUploaded(null) // 보낸 뒤 올린 파일 첨부는 비운다
     setSending(false)
@@ -130,22 +134,56 @@ export function ComparePage() {
   return (
     <div className="compare">
       <div className="toolbar">
-        <div className="viewtabs">
-          <button type="button" className={view === 'both' ? 'on' : ''} onClick={() => setView('both')}>
-            나란히 보기
-          </button>
-          <button type="button" className={view === 'off' ? 'on' : ''} onClick={() => setView('off')}>
-            방어 OFF만
-          </button>
-          <button type="button" className={view === 'on' ? 'on' : ''} onClick={() => setView('on')}>
-            방어 ON만
-          </button>
+        <div className="mode-legend">
+          <div className="legend-item">
+            <span className="badge off">방어 OFF</span>
+            <span className="legend-desc">보안 장치가 전혀 없는 챗봇. 실제 은행 사고처럼 공격이 그대로 먹힙니다.</span>
+          </div>
+          <div className="legend-item">
+            <span className="badge on">방어 ON</span>
+            <span className="legend-desc">같은 챗봇에 여러 겹 방어를 켠 상태. 같은 공격도 막힙니다.</span>
+          </div>
         </div>
       </div>
 
-      <div className={`panels view-${view}`}>
-        {view !== 'on' && <ChatPanel mode="off" state={off} onConfirmed={() => {}} />}
-        {view !== 'off' && <ChatPanel mode="on" state={on} onConfirmed={() => {}} />}
+      <details className="defense-detail">
+        <summary>적용된 방어 모듈 (D-01~D-09)</summary>
+        <ul>
+          <li>
+            <span className="dcode">D-01~04</span> <b>입력 선검사 <span className="dsub">(보조 레이어)</span></b>
+            — 입력을 유니코드·자모 정규화한 뒤 SmoothPPL(당혹도)과 Llama Guard를 병렬로 돌려,
+            위험 입력은 LLM을 호출하기 전에 차단하고 애매하면 다시 묻습니다.
+          </li>
+          <li>
+            <span className="dcode">D-05</span> <b>서버 측 권한 강제</b>
+            — 챗봇이 넘긴 고객번호를 무시하고 세션의 ‘로그인한 본인’ 번호로 강제 조회해,
+            남의 계좌를 넘보는 권한 우회(BOLA/IDOR)를 원천 차단합니다.
+          </li>
+          <li>
+            <span className="dcode">D-06</span> <b>서버 규칙 · 송금 사람 확인</b>
+            — 이체 한도는 서버가 검증하고, 송금은 ‘대기’만 생성한 뒤 사람이 [확인]을 눌러야 실행됩니다
+            (human-in-the-loop). 챗봇에는 실행 권한이 없습니다.
+          </li>
+          <li>
+            <span className="dcode">D-07</span> <b>첨부 문서 격리</b>
+            — 첨부 문서를 ‘신뢰할 수 없는 입력’ 구분자로 감싸 전달하고, 문서에서 뽑은 값은
+            허용 문자만 통과시켜 간접 프롬프트 인젝션을 완화합니다.
+          </li>
+          <li>
+            <span className="dcode">D-08</span> <b>답변 출력 안전 처리</b>
+            — 답변 속 HTML을 실행하지 않고 인코딩해 글자로만 출력하며, 외부 링크·이미지를 제거하고
+            계좌번호를 마스킹해 XSS·데이터 유출을 막습니다.
+          </li>
+          <li>
+            <span className="dcode">D-09</span> <b>프롬프트 유출 차단</b>
+            — 답변에 시스템 프롬프트(내부 지침) 조각이 일정 개수 이상 섞여 나오면 응답을 통째로 차단합니다.
+          </li>
+        </ul>
+      </details>
+
+      <div className="panels view-both">
+        <ChatPanel mode="off" turns={off} onConfirmed={() => {}} />
+        <ChatPanel mode="on" turns={on} onConfirmed={() => {}} />
       </div>
 
       <form
