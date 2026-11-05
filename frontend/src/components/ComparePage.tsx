@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../api'
 import type { Preset } from '../types'
 import { ChatPanel, type PanelState } from './ChatPanel'
+import { ClipIcon } from './icons'
 
 type SetTurns = React.Dispatch<React.SetStateAction<PanelState[]>>
 
@@ -150,7 +151,7 @@ export function ComparePage() {
         <summary>적용된 방어 모듈 (D-01~D-09)</summary>
         <ul>
           <li>
-            <span className="dcode">D-01~04</span> <b>입력 선검사 <span className="dsub">(보조 레이어)</span></b>
+            <span className="dcode">D-01~04</span> <b>입력 선검사 <span className="dsub">(보조 방어)</span></b>
             — 입력을 유니코드·자모 정규화한 뒤 SmoothPPL(당혹도)과 Llama Guard를 병렬로 돌려,
             위험 입력은 LLM을 호출하기 전에 차단하고 애매하면 다시 묻습니다.
           </li>
@@ -220,7 +221,7 @@ export function ComparePage() {
             </button>
           )}
           {suggestions.map((s, i) => (
-            <button key={i} type="button" className="chip-reply" disabled={sending} onClick={() => void sendBoth(s)}>
+            <button key={i} type="button" className="chip-reply" disabled={sending} onClick={() => changeInput(s)}>
               <span className="chip-kind reply">일반</span>
               {s}
             </button>
@@ -249,7 +250,8 @@ export function ComparePage() {
             disabled={sending}
             title="PDF·txt 파일 첨부 (1MB 이하)"
           >
-            📎 파일 첨부
+            <ClipIcon />
+            파일 첨부
           </button>
           <input
             ref={fileRef}
@@ -260,7 +262,7 @@ export function ComparePage() {
           />
           {uploaded ? (
             <div className="attach-pill">
-              <span className="attach-icon" aria-hidden="true">📎</span>
+              <span className="attach-icon" aria-hidden="true"><ClipIcon /></span>
               {uploaded.filename}
               <button type="button" className="attach-x" onClick={() => setUploaded(null)} aria-label="첨부 취소">
                 ✕
@@ -268,7 +270,7 @@ export function ComparePage() {
             </div>
           ) : presetAttach ? (
             <div className="attach-pill">
-              <span className="attach-icon" aria-hidden="true">📎</span>
+              <span className="attach-icon" aria-hidden="true"><ClipIcon /></span>
               invoice.pdf
               <button type="button" className="attach-x" onClick={() => setDropAttach(true)} aria-label="첨부 취소">
                 ✕

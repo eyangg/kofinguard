@@ -12,7 +12,8 @@ const LAYER_NAME: Record<string, string> = {
   'D-09': '시스템 프롬프트 유출 차단',
 }
 
-type Tone = 'ok' | 'warn' | 'block'
+// idle = 검사할 일이 없었음 (통과와 구분해 회색 점선으로 보인다)
+type Tone = 'ok' | 'warn' | 'block' | 'idle'
 
 type Row = { layer: string; name: string; text: string; tone: Tone } | null
 
@@ -139,6 +140,22 @@ function describeFinal(e: TraceEvent, info: Record<string, SrcInfo>, showSource:
   return { layer: 'D-04', name: LAYER_NAME['D-04'], tone: tone[e.action] ?? 'ok', text: `${tag}${text}` }
 }
 
+// 입력은 통과했는데 핵심 방어(D-05~D-09) 기록이 없으면, 챗봇이 조회·송금 툴을 안 부르고 답한 것이다
+// (예: 남의 번호 요청을 챗봇이 스스로 거절). 핵심 방어가 빠진 게 아니라 검사할 일이 없었다는 걸 보여 준다.
+const CORE_LAYERS = ['D-05', 'D-06', 'D-07', 'D-08', 'D-09']
+
+function coreIdleRow(trace: TraceEvent[]): Shown | null {
+  const finals = trace.filter((e) => e.layer === 'D-04')
+  if (finals.length === 0 || finals.some((e) => e.action !== 'pass')) return null
+  if (trace.some((e) => CORE_LAYERS.includes(e.layer))) return null
+  return {
+    layer: 'D-05~09',
+    name: '핵심 방어 (서버) · 검사할 일 없음',
+    tone: 'idle',
+    text: '챗봇이 조회·송금 기능을 쓰지 않고 바로 답해서, 서버가 검사하거나 고칠 것이 없었어요. 챗봇이 조회·송금을 시도했다면 D-05·D-06이 로그인한 본인 기준으로 다시 검사해요.',
+  }
+}
+
 function finalLine(rows: Shown[]): string {
   if (rows.some((r) => r.layer === 'D-04' && r.tone === 'block')) return '입력 차단됨'
   if (rows.some((r) => r.tone === 'block')) return '서버가 막음'
@@ -155,6 +172,8 @@ export function TracePanel({ trace, elapsedMs }: { trace: TraceEvent[]; elapsedM
   const rows = trace
     .map((e) => (e.layer === 'D-04' ? describeFinal(e, info, showSource) : describe(e, showSource)))
     .filter((r): r is Shown => r !== null)
+  const idle = coreIdleRow(trace)
+  if (idle) rows.push(idle)
   if (rows.length === 0) return null
   const took = elapsedMs != null ? `${(elapsedMs / 1000).toFixed(1)}초` : null
   return (

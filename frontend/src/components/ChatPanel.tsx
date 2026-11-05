@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ApiError, api } from '../api'
 import type { ChatResponse, Mode } from '../types'
+import { ClipIcon } from './icons'
 import { TracePanel } from './TracePanel'
 
 // ON 보안 검사는 수십 초 걸려서, 기다리는 동안 단계별 진행 메시지를 돌린다.
@@ -97,7 +98,7 @@ function Turn({ mode, state, onConfirmed }: { mode: Mode; state: PanelState; onC
           <div className="msg user">{state.user}</div>
           {state.attachment && (
             <div className="attach-chip">
-              <span className="attach-icon" aria-hidden="true">📎</span>
+              <span className="attach-icon" aria-hidden="true"><ClipIcon /></span>
               {state.attachment}
               <span className="attach-note">첨부됨</span>
             </div>
