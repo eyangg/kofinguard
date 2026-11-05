@@ -49,7 +49,10 @@ function App() {
       </header>
 
       <main>
-        {tab === 'compare' && <ComparePage />}
+        {/* 비교 채팅은 탭을 바꿔도 지우지 않고 숨기기만 한다 (보낸 질문·답변·응답 대기가 사라지지 않게) */}
+        <div className="tab-pane" hidden={tab !== 'compare'}>
+          <ComparePage />
+        </div>
         {tab === 'eval' && <EvalResults />}
       </main>
     </div>
