@@ -5,14 +5,22 @@ S1·S2·S3를 각 n회씩 OFF/ON으로 실제 실행하고, 공격이 뚫린 비
 - ON  성공률 = 공격이 뚫린 비율(낮을수록 안전) → 서버 방어가 막는다는 근거
 결과는 캐시(artifacts/attack_eval_cache.json)해서 다시 돌릴 때 OpenAI 호출을 아낀다.
 
+--core-only: 방어 ON에서 입력 탐지기(D-01~D-04)만 빼고(항상 통과) 핵심 방어(D-05~D-09)만으로 돌린다.
+S2처럼 탐지기가 먼저 막는 공격을 핵심 방어가 혼자서도 막는지 보는 실험이다. Ollama 불필요.
+결과는 artifacts/attack_eval_core_only.json에 따로 쓰고, 회차마다 핵심 방어가 실제로 한 일도 센다
+(예: 'D-08 HTML 태그 인코딩' = 답변 속 코드를 무력화, 'D-08 계좌번호 마스킹' = 계좌번호만 가림).
+
 실행 (backend 폴더, Ollama 실행 중, 비용 발생):
-    .\\.venv\\Scripts\\python.exe -m eval.run_attack_eval --n 5
+    .\\.venv\\Scripts\\python.exe -m eval.run_attack_eval --n 10
+    .\\.venv\\Scripts\\python.exe -m eval.run_attack_eval --n 10 --core-only
 """
 
 import argparse
 import json
+import re
 import sys
 import uuid
+from collections import Counter
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,13 +34,44 @@ import seed
 from attachments import load_attachment_text, save_attachment
 from chat.llm_client import LLM, LLMConfigError, OpenAILLM
 from chat.pipeline import DetectorLike, run_chat
-from detector.router import DetectorConfigError, build_detector
+from detector.router import DetectorConfigError, Verdict, build_detector
 from models import Customer, EvalRun
 from scenarios.attacks import S1_MESSAGE, S2_INVOICE_FILE, S2_MESSAGE, S3_MESSAGE, judge_s1, judge_s2, judge_s3
 
 BACKEND = Path(__file__).resolve().parents[1]
 OUT_FILE = BACKEND.parent / "artifacts" / "attack_eval.json"
 CACHE_FILE = BACKEND.parent / "artifacts" / "attack_eval_cache.json"
+CORE_OUT_FILE = BACKEND.parent / "artifacts" / "attack_eval_core_only.json"
+CORE_CACHE_FILE = BACKEND.parent / "artifacts" / "attack_eval_core_only_cache.json"
+
+INPUT_LAYERS = {"D-01", "D-02", "D-03", "D-04"}
+
+
+class PassDetector:
+    """--core-only 전용: 입력 검사를 항상 통과시켜 핵심 방어(D-05~D-09)만 떼어 본다. 서비스에서는 쓰지 않는다."""
+
+    guard = None
+
+    def check(self, text: str) -> Verdict:
+        return Verdict(action="pass", normalized=text)
+
+
+def acted(result: Any) -> list[str]:
+    """이번 턴에 핵심 방어(D-05~D-09)가 실제로 한 일. 개수·고객번호는 빼서 회차끼리 합칠 수 있게 한다.
+
+    D-05~D-07 툴 검사는 서버가 손댄 경우(사유가 있을 때)만 센다. D-07 문서 격리 표시는 매번 붙지만 기록은 없다.
+    """
+    out: set[str] = set()
+    for e in result.trace:
+        if e.layer in INPUT_LAYERS:
+            continue
+        if e.layer == "D-08":
+            out.update(f"D-08 {re.sub(r' ?[0-9]+개', '', c)}" for c in e.detail.get("changes", []))
+        elif e.layer == "D-09":
+            out.add("D-09 답변 차단")
+        elif e.detail.get("reason"):
+            out.add(f"{e.layer} {re.sub(r'\([^)]*\)', '', str(e.detail['reason'])).strip()}")
+    return sorted(out)
 
 SCENARIOS = {
     "S1": {"message": S1_MESSAGE, "attachment": None},
@@ -61,19 +100,25 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--n", type=int, default=5, help="시나리오·모드별 반복 횟수 (기본 5)")
     parser.add_argument("--no-cache", action="store_true", help="캐시 무시하고 모두 새로 실행")
+    parser.add_argument("--core-only", action="store_true", help="방어 ON에서 탐지기를 빼고 핵심 방어(D-05~D-09)만으로 실행")
     args = parser.parse_args()
+    core_only: bool = args.core_only
+    out_file = CORE_OUT_FILE if core_only else OUT_FILE
+    cache_file = CORE_CACHE_FILE if core_only else CACHE_FILE
+    modes = ("on",) if core_only else ("off", "on")
 
     db.load_env()
     try:
         llm: LLM = OpenAILLM()
-        detector: DetectorLike = build_detector()
+        detector: DetectorLike = PassDetector() if core_only else build_detector()
     except (LLMConfigError, DetectorConfigError) as e:
         print(e, file=sys.stderr)
         return 1
 
-    cache: dict[str, bool] = {}
-    if CACHE_FILE.exists() and not args.no_cache:
-        cache = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+    # 일반: 키 → 뚫림 여부(bool). core-only: 키 → {"breached": bool, "actions": [...]}
+    cache: dict[str, Any] = {}
+    if cache_file.exists() and not args.no_cache:
+        cache = json.loads(cache_file.read_text(encoding="utf-8"))
 
     rows: list[dict[str, Any]] = []
     with Session(db.get_engine()) as session:
@@ -84,13 +129,15 @@ def main() -> int:
             return 1
 
         for scenario, spec in SCENARIOS.items():
-            for mode in ("off", "on"):
+            for mode in modes:
                 breaches = 0
                 used_cache = 0
+                actions: Counter[str] = Counter()  # 방어가 한 일 → 그 일이 있었던 회차 수
+                quiet = 0  # 방어가 끼어들 일이 없었던 회차 (챗봇이 공격에 넘어가지 않음)
                 for i in range(args.n):
                     key = f"{llm.model}|{scenario}|{mode}|{i}"
                     if key in cache:
-                        breached = cache[key]
+                        hit = cache[key]
                         used_cache += 1
                     else:
                         seed.reset(session)
@@ -100,19 +147,34 @@ def main() -> int:
                             detector=detector if mode == "on" else None, attachment_text=text,
                         )
                         breached = _judge(scenario, result)
-                        cache[key] = breached
+                        hit = {"breached": breached, "actions": acted(result)} if core_only else breached
+                        cache[key] = hit
+                    if core_only:
+                        breached = hit["breached"]
+                        actions.update(hit["actions"])
+                        quiet += 0 if hit["actions"] else 1
+                    else:
+                        breached = hit
                     breaches += 1 if breached else 0
                 rate = round(breaches / args.n, 2)
-                rows.append({"scenario": scenario, "mode": mode, "n": args.n, "breaches": breaches, "rate": rate})
-                print(f"  {scenario} {mode.upper():<3} 뚫림 {breaches}/{args.n} = {rate:.0%}  (캐시 {used_cache})")
+                row: dict[str, Any] = {"scenario": scenario, "mode": mode, "n": args.n, "breaches": breaches, "rate": rate}
+                if core_only:
+                    row["actions"] = dict(sorted(actions.items()))
+                    row["quiet"] = quiet
+                rows.append(row)
+                extra = f"  방어가 한 일 {row['actions']} · 끼어들 일 없음 {quiet}" if core_only else ""
+                print(f"  {scenario} {mode.upper():<3} 뚫림 {breaches}/{args.n} = {rate:.0%}  (캐시 {used_cache}){extra}")
         seed.reset(session)
 
-    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_FILE.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    env = {"model": llm.model, "guard_model": getattr(detector, "guard", None) and detector.guard.model}
+    if core_only:
+        env: dict[str, Any] = {"model": llm.model, "detector": "off (핵심 방어만)"}
+    else:
+        env = {"model": llm.model, "guard_model": getattr(detector, "guard", None) and detector.guard.model}
     metrics = {f"{r['scenario']}_{r['mode']}": r["rate"] for r in rows}
-    OUT_FILE.write_text(
+    out_file.write_text(
         json.dumps(
             {"measured_at": datetime.now(timezone.utc).isoformat(), "n": args.n, "env": env, "rows": rows},
             ensure_ascii=False,
@@ -122,9 +184,9 @@ def main() -> int:
         encoding="utf-8",
     )
     with Session(db.get_engine()) as s:
-        s.add(EvalRun(kind="attack", config={"n": args.n}, metrics=metrics, env=env))
+        s.add(EvalRun(kind="attack_core" if core_only else "attack", config={"n": args.n}, metrics=metrics, env=env))
         s.commit()
-    print(f"\n기록: {OUT_FILE}")
+    print(f"\n기록: {out_file}")
     return 0
 
 

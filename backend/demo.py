@@ -161,4 +161,8 @@ def _read_json(name: str) -> dict[str, Any] | None:
 @router.get("/eval")
 def eval_latest(_user: CurrentUser) -> dict[str, Any]:
     """최근 탐지기(E-02)·공격 성공률(E-03) 평가 결과. 명령어로 돌린 결과 파일을 읽기만 한다 (U-06)."""
-    return {"detector": _read_json("detector_eval.json"), "attack": _read_json("attack_eval.json")}
+    return {
+        "detector": _read_json("detector_eval.json"),
+        "attack": _read_json("attack_eval.json"),
+        "attack_core": _read_json("attack_eval_core_only.json"),  # 탐지기 끄고 핵심 방어만 (--core-only)
+    }
