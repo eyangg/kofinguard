@@ -35,12 +35,14 @@ def test_migration_twice_is_ok(engine: Engine) -> None:
 
 def test_seed_twice_does_not_duplicate(engine: Engine) -> None:
     with Session(engine) as s:
-        assert seed.seed(s) == 2
+        assert seed.seed(s) == len(seed.CUSTOMERS)
     with Session(engine) as s:
         assert seed.seed(s) == 0
-        assert len(s.scalars(select(Customer)).all()) == 2
+        assert len(s.scalars(select(Customer)).all()) == len(seed.CUSTOMERS)
         balances = {a.account_no: a.balance for a in s.scalars(select(Account))}
-    assert balances == {"111-1001-0001": 3_000_000, "222-1002-0001": 5_000_000}
+    assert balances == {c["account_no"]: c["balance"] for c in seed.CUSTOMERS}
+    assert balances["111-1001-0001"] == 3_000_000  # 시연 기준 계정(김민수)
+    assert balances["222-1002-0001"] == 5_000_000  # S1 대상(이서연)
 
 
 def test_no_plaintext_password(engine: Engine) -> None:
