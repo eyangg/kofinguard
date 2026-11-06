@@ -39,6 +39,14 @@ class BlockDetector:
         return Verdict(action="block", normalized=text, guard_safe=False, guard_categories=["S2"])
 
 
+def test_d02_event_carries_real_threshold() -> None:
+    # 화면이 고정 5,000 대신 서버가 실제로 쓴 기준값(KFG_PPL_THRESHOLD)을 보여 주도록 trace에 싣는다
+    detector = PassDetector()
+    detector.ppl_threshold = 10000.0  # type: ignore[attr-defined]
+    d02 = next(e for e in OnDefense(detector).check_input("내 잔액 알려줘", None).events if e.layer == "D-02")
+    assert d02.detail["threshold"] == 10000.0
+
+
 # ---- D-05 서버 권한 검사 ----
 
 

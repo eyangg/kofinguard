@@ -23,6 +23,10 @@ function num(v: unknown): number | null {
 function str(v: unknown): string {
   return typeof v === 'string' ? v : ''
 }
+// 서버가 실제 판정에 쓴 PPL 기준값. 기준값이 기록되기 전의 예전 대화는 5,000(Phase 6 결정값).
+function thresholdOf(d: Record<string, unknown>): number {
+  return num(d['threshold']) ?? 5000
+}
 function sourceLabel(d: Record<string, unknown>): string {
   const s = str(d['source'])
   return s === 'document' ? '첨부 문서' : s === 'message' ? '사용자 메시지' : ''
@@ -46,12 +50,13 @@ function describe(e: TraceEvent, showSource: boolean): Row {
     case 'D-02': {
       const mean = num(d['mean_ppl'])
       if (mean === null) return { layer: e.layer, name, tone: 'ok', text: `${tag}SmoothPPL로 문장 자연스러움을 쟀어요.` }
-      const normal = mean <= 5000
+      const limit = thresholdOf(d)
+      const normal = mean <= limit
       return {
         layer: e.layer,
         name,
         tone: 'ok',
-        text: `${tag}SmoothPPL 점수 ${Math.round(mean).toLocaleString()} — 기준(5,000) ${normal ? '이하라 정상 범위' : '초과(알아보기 어려운 문장)'}예요. 이 점수만으로는 막지 않아요.`,
+        text: `${tag}SmoothPPL 점수 ${Math.round(mean).toLocaleString()} — 기준(${limit.toLocaleString()}) ${normal ? '이하라 정상 범위' : '초과(알아보기 어려운 문장)'}예요. 이 점수만으로는 막지 않아요.`,
       }
     }
     case 'D-03': {
@@ -94,7 +99,7 @@ function describe(e: TraceEvent, showSource: boolean): Row {
 type Shown = Exclude<Row, null>
 
 // 같은 입력(message/document)의 D-01~D-03 값을 모아 D-04 요약에 쓴다.
-type SrcInfo = { changed?: boolean; mean?: number; safe?: boolean; unsafe?: boolean; err?: string }
+type SrcInfo = { changed?: boolean; mean?: number; limit?: number; safe?: boolean; unsafe?: boolean; err?: string }
 
 function gatherInfo(trace: TraceEvent[]): Record<string, SrcInfo> {
   const info: Record<string, SrcInfo> = {}
@@ -102,7 +107,10 @@ function gatherInfo(trace: TraceEvent[]): Record<string, SrcInfo> {
     const s = str(e.detail['source']) || 'message'
     const cur = (info[s] ??= {})
     if (e.layer === 'D-01') cur.changed = e.detail['changed'] === true
-    if (e.layer === 'D-02') cur.mean = num(e.detail['mean_ppl']) ?? undefined
+    if (e.layer === 'D-02') {
+      cur.mean = num(e.detail['mean_ppl']) ?? undefined
+      cur.limit = thresholdOf(e.detail)
+    }
     if (e.layer === 'D-03') {
       cur.safe = e.detail['guard_safe'] === true
       cur.unsafe = e.detail['guard_safe'] === false
@@ -117,6 +125,7 @@ function describeFinal(e: TraceEvent, info: Record<string, SrcInfo>, showSource:
   const tag = showSource && src ? `[${src}] ` : ''
   const c = info[str(e.detail['source']) || 'message'] ?? {}
   const mean = c.mean != null ? Math.round(c.mean).toLocaleString() : '—'
+  const limit = (c.limit ?? 5000).toLocaleString()
   // D-01은 판정에 쓰지 않고 전처리(표준형 정리)만 한다. 변형이 있었을 때만 덧붙인다.
   const pre = c.changed ? ' 입력은 D-01에서 표준형으로 정리한 뒤 검사했어요.' : ''
 
@@ -129,10 +138,10 @@ function describeFinal(e: TraceEvent, info: Record<string, SrcInfo>, showSource:
       text = `AI 안전필터(D-03)가 '위험'으로 판정해서 바로 차단했어요. SmoothPPL 점수(D-02)는 문장이 자연스러운지만 재고 위험한지는 못 가리기 때문에, 안전필터가 '위험'이라고 하면 점수와 상관없이 막아요.${pre}`
       break
     case 'reask':
-      text = `AI 안전필터(D-03)는 '안전'인데 SmoothPPL 점수(D-02) ${mean}가 기준(5,000)을 넘었어요. 점수가 높다는 건 '위험'이 아니라 '알아보기 어려운 문장'이라는 뜻이라, 차단하지 않고 '다시 묻기'로 재입력을 요청했어요.${pre}`
+      text = `AI 안전필터(D-03)는 '안전'인데 SmoothPPL 점수(D-02) ${mean}가 기준(${limit})을 넘었어요. 점수가 높다는 건 '위험'이 아니라 '알아보기 어려운 문장'이라는 뜻이라, 차단하지 않고 '다시 묻기'로 재입력을 요청했어요.${pre}`
       break
     case 'pass':
-      text = `AI 안전필터(D-03)가 '안전'이고 SmoothPPL 점수(D-02) ${mean}도 기준(5,000) 이하예요. 둘 다 정상이라 통과시켜 챗봇에게 전달했어요.${pre}`
+      text = `AI 안전필터(D-03)가 '안전'이고 SmoothPPL 점수(D-02) ${mean}도 기준(${limit}) 이하예요. 둘 다 정상이라 통과시켜 챗봇에게 전달했어요.${pre}`
       break
     default: // unavailable
       text = `검사를 끝까지 못 해서(${c.err || '모델 오류'}) 안전을 확인하지 못했어요. 확인이 안 되면 통과시키지 않고 처리를 멈춰요.`
