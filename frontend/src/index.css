@@ -98,6 +98,33 @@ button:disabled {
   color: var(--sub);
   font-size: 14px;
 }
+.login-intro {
+  margin: -4px 0 4px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.demo-account {
+  display: grid;
+  gap: 5px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.login .demo-account button {
+  margin: 0;
+  padding: 9px 12px;
+  background: var(--brand-bg);
+  color: var(--brand);
+}
+.login .demo-account button:hover:not(:disabled) {
+  background: var(--brand-line);
+}
+.demo-account small {
+  color: var(--sub);
+  line-height: 1.5;
+}
 .login label {
   display: flex;
   flex-direction: column;
@@ -264,6 +291,26 @@ main {
   padding: 16px 18px;
   margin-bottom: 14px;
   box-shadow: var(--shadow);
+}
+.compare-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  width: 100%;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.compare-intro strong {
+  color: var(--ink);
+  font-size: 15px;
+}
+.demo-scope {
+  width: 100%;
+  margin: 0;
+  color: var(--sub);
+  font-size: 12px;
+  line-height: 1.5;
 }
 /* 방어 ON / OFF가 무엇인지 설명 (옛 '~만 보기' 토글 자리) */
 .mode-legend {
@@ -948,6 +995,14 @@ main {
   font-weight: 600;
   padding: 5px 10px;
   border-radius: 4px;
+}
+.eval-intro .eval-env-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: #fff4e5;
+  color: #705015;
+  font-size: 13px;
 }
 .eval-headline {
   display: flex;

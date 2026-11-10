@@ -38,6 +38,7 @@ export type Preset = {
 export type Mode = 'off' | 'on'
 
 export type EvalLatest = {
+  current_env?: { guard_model?: string; ppl_threshold?: string | null; num_samples?: string }
   detector: {
     measured_at?: string
     env: { guard_model?: string; ppl_threshold?: number; num_samples?: number; cpu?: string }

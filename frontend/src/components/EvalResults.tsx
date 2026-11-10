@@ -17,6 +17,17 @@ export function EvalResults() {
   const measuredAt = data.attack?.measured_at ?? data.detector?.measured_at
   const model = data.attack?.env.model
   const n = data.attack?.n ?? data.attack?.rows[0]?.n
+  const measuredGuard = data.attack?.env.guard_model ?? data.detector?.env.guard_model
+  const currentGuard = data.current_env?.guard_model
+  const measuredThreshold = data.detector?.env.ppl_threshold
+  const currentThreshold = data.current_env?.ppl_threshold
+  const measuredSamples = data.detector?.env.num_samples
+  const currentSamples = data.current_env?.num_samples
+  const environmentDiffers = Boolean(
+    (currentGuard && measuredGuard && currentGuard !== measuredGuard) ||
+    (currentThreshold && measuredThreshold != null && Number(currentThreshold) !== measuredThreshold) ||
+    (currentSamples && measuredSamples != null && Number(currentSamples) !== measuredSamples),
+  )
 
   return (
     <div className="eval">
@@ -26,15 +37,25 @@ export function EvalResults() {
           채팅 탭의 한 번 시연과 달리, 여기는 같은 공격을 <b>여러 번 반복</b>하고
           정상 질문 <b>30개</b>를 훑어 측정한 <b>통계 근거</b>입니다.
         </p>
-        <p>
-          일회성 결과가 아니며, 맨 아래 <b>‘다시 측정하는 방법’</b>의 명령어로 누구나 같은 측정을 다시 돌릴 수 있습니다.
-        </p>
+        <p>아래 숫자는 저장된 평가 파일의 결과입니다. 맨 아래 <b>‘다시 측정하는 방법’</b>으로 재현할 수 있습니다.</p>
         <div className="eval-meta">
           {measuredAt && <span>측정 {fmtDate(measuredAt)}</span>}
           {model && <span>모델 {model}</span>}
           {n != null && <span>공격 반복 각 {n}회</span>}
-          {data.detector && <span>탐지기 Guard {data.detector.env.guard_model}</span>}
+          {measuredGuard && <span>공격 평가 Guard {measuredGuard}</span>}
+          {data.detector?.env.guard_model && <span>탐지기 평가 Guard {data.detector.env.guard_model}</span>}
+          {currentGuard && <span>현재 서버 설정 Guard {currentGuard}</span>}
+          {measuredThreshold != null && <span>탐지기 평가 PPL 기준 {measuredThreshold}</span>}
+          {currentThreshold && <span>현재 서버 PPL 기준 {currentThreshold}</span>}
+          {measuredSamples != null && <span>탐지기 평가 샘플 {measuredSamples}회</span>}
+          {currentSamples && <span>현재 서버 샘플 {currentSamples}회</span>}
         </div>
+        {environmentDiffers && (
+          <p className="eval-env-note">
+            측정 조건과 현재 서버 설정이 다릅니다. 아래 수치를 현재 시연 환경의 성능으로 해석하지 마세요.
+            같은 조건에서 다시 측정한 뒤 평가 파일을 갱신해야 직접 비교할 수 있습니다.
+          </p>
+        )}
       </div>
 
       <Headline attack={data.attack} />

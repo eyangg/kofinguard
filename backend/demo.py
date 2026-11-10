@@ -162,6 +162,11 @@ def _read_json(name: str) -> dict[str, Any] | None:
 def eval_latest(_user: CurrentUser) -> dict[str, Any]:
     """최근 탐지기(E-02)·공격 성공률(E-03) 평가 결과. 명령어로 돌린 결과 파일을 읽기만 한다 (U-06)."""
     return {
+        "current_env": {
+            "guard_model": os.environ.get("KFG_GUARD_MODEL", "llama-guard3:8b"),
+            "ppl_threshold": os.environ.get("KFG_PPL_THRESHOLD"),
+            "num_samples": os.environ.get("KFG_PPL_NUM_SAMPLES") or "15",
+        },
         "detector": _read_json("detector_eval.json"),
         "attack": _read_json("attack_eval.json"),
         "attack_core": _read_json("attack_eval_core_only.json"),  # 탐지기 끄고 핵심 방어만 (--core-only)

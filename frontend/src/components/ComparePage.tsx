@@ -135,16 +135,21 @@ export function ComparePage() {
   return (
     <div className="compare">
       <div className="toolbar">
+        <div className="compare-intro">
+          <strong>한 번의 입력으로 방어 효과 비교</strong>
+          <span>S1 또는 S2 공격 선택 → 보내기 → 양쪽 결과와 방어 판단 근거 확인</span>
+        </div>
         <div className="mode-legend">
           <div className="legend-item">
             <span className="badge off">방어 OFF</span>
-            <span className="legend-desc">보안 장치가 전혀 없는 챗봇. 실제 은행 사고처럼 공격이 그대로 먹힙니다.</span>
+            <span className="legend-desc">취약점을 재현한 비교용 챗봇입니다.</span>
           </div>
           <div className="legend-item">
             <span className="badge on">방어 ON</span>
-            <span className="legend-desc">같은 챗봇에 여러 겹 방어를 켠 상태. 같은 공격도 막힙니다.</span>
+            <span className="legend-desc">같은 입력에 입력 탐지와 서버 방어를 적용합니다.</span>
           </div>
         </div>
+        <p className="demo-scope">교육용 시연입니다. OFF에는 의도적인 취약점이 있으며 모든 고객·계좌·금액은 가상 데이터입니다.</p>
       </div>
 
       <details className="defense-detail">
