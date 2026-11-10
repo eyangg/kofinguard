@@ -30,6 +30,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import db
+
+# scenarios.attacks는 import 시점에 KFG_ATTACKER_BASE(공격자 수집 주소)를 읽는다.
+# 그 import보다 먼저 .env를 불러와야, 평가를 수동 실행해도 systemd 서비스와 같은 값(배포는 /api/demo)을 쓴다.
+# (안 그러면 평가 프로세스에 기본값 127.0.0.1이 박혀 배포 PDF와 어긋나고, S2가 실제로 뚫려도 판정이 놓친다.)
+db.load_env()
+
 import seed
 from attachments import load_attachment_text, save_attachment
 from chat.llm_client import LLM, LLMConfigError, OpenAILLM
@@ -107,7 +113,6 @@ def main() -> int:
     cache_file = CORE_CACHE_FILE if core_only else CACHE_FILE
     modes = ("on",) if core_only else ("off", "on")
 
-    db.load_env()
     try:
         llm: LLM = OpenAILLM()
         detector: DetectorLike = PassDetector() if core_only else build_detector()
