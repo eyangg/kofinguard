@@ -11,12 +11,12 @@
 | 도메인 | **bankguard.axworks.site** (단일) | 강사 `axworks.site`에 서브도메인 1개 요청 |
 | 구조 | **한 서버·한 출처** | Lightsail의 Caddy가 프론트 정적파일 + `/api` 리버스프록시. Cloudflare Pages 안 씀 |
 | OFF 모드 | **켬** (로그인 뒤에만) | OFF/ON 비교가 핵심. XSS는 CSP로 봉쇄 |
-| XSS 대응 | **CSP 중간 정책** (Caddy 헤더) | 삽입 코드 실행은 되되, `connect/img-src 'self'`로 **외부 유출 차단** |
+| XSS 대응 | **CSP 중간 정책** (Caddy 헤더) | 삽입 코드 실행과 같은 출처의 시연용 수집은 허용. 실제 데이터 보호 수단으로 간주하지 않음 |
 | 탐지기 | **Llama Guard 1b + Qwen GGUF** | 1b 오탐(13%)은 "탐지기 한계→서버 방어 필요" 근거 |
 | 공격자 서버 | **독립 9999 서버는 배포 안 함** | 수집은 같은 출처의 `/api/demo/x`·`/collect`가 담당 → 배포판에서도 **실제 유출** 시연 |
 | Lightsail | **8GB RAM / 2vCPU** (~$44/월) | Qwen+1b+앱 RAM ~6GB |
 
-**왜 단일 출처가 유리한가**: 프론트와 `/api`가 같은 출처라 **CORS·SameSite=None·교차출처 유출 설정이 전부 불필요**. 유출도 같은 출처(`/api/demo/collect`)로 가서 `CSP connect-src 'self'`만으로 외부를 완전 차단. 성능 체감 차이는 없음(지연은 LLM·탐지기 쪽).
+**단일 출처 구성**: 프론트와 `/api`가 같은 출처라 CORS·SameSite=None 설정이 불필요하다. 시연용 유출 수집도 같은 출처(`/api/demo/collect`)에서 이뤄진다. `CSP connect-src 'self'`는 외부 주소로의 요청을 제한하지만, 실행된 스크립트의 같은 출처 API 접근은 막지 못한다. 따라서 공개 시연에는 가상 데이터만 두고 실제 개인정보·금융 문서를 입력하지 않는다.
 
 ---
 
