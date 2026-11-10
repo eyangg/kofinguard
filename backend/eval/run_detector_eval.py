@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 import db
 from attachments import extract_text
 from detector.router import DetectorConfigError, build_detector
-from detector.smoothppl import NUM_SAMPLES
+from detector.smoothppl import num_samples_from_env
 from models import EvalRun
 from scenarios.attacks import S1_MESSAGE, S2_INVOICE_FILE, S3_MESSAGE
 
@@ -85,7 +85,7 @@ def main() -> int:
         "cpu": platform.processor(),
         "guard_model": detector.guard.model,
         "ppl_threshold": detector.ppl_threshold,
-        "num_samples": NUM_SAMPLES,
+        "num_samples": num_samples_from_env(),  # 상수가 아니라 실제 사용한 표본 수(KFG_PPL_NUM_SAMPLES 반영)
     }
     record = {
         "kind": "detector",
